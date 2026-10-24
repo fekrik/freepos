@@ -18,6 +18,9 @@ import { LoyaltyModal, type Customer } from '../components/LoyaltyModal';
 import { ShiftModal, type ShiftInfo } from '../components/ShiftModal';
 import { ZReportModal, type ZReportData } from '../components/ZReportModal';
 import { ReturnModal } from '../components/ReturnModal';
+import { ParkedModal, type ParkedOrder } from '../components/ParkedModal';
+import { OpenRingModal } from '../components/OpenRingModal';
+import { TimeClockModal } from '../components/TimeClockModal';
 import { queueOfflineSale, getPendingOfflineSales, removeOfflineSale, type OfflineSalePayload } from '../offline';
 import { broadcastCFD } from '../cfd';
 
@@ -57,6 +60,25 @@ export function Lane() {
   const [zReport, setZReport] = useState<ZReportData | null>(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showMobileTotals, setShowMobileTotals] = useState(false);
+
+  // Suspended / Parked tickets
+  const [parkedOrders, setParkedOrders] = useState<ParkedOrder[]>(() => {
+    try {
+      const raw = localStorage.getItem('freshpos.parked_orders');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showParkedModal, setShowParkedModal] = useState(false);
+  const [showOpenRingModal, setShowOpenRingModal] = useState(false);
+  const [showTimeClockModal, setShowTimeClockModal] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshpos.parked_orders', JSON.stringify(parkedOrders));
+    } catch {}
+  }, [parkedOrders]);
 
   const scanRef = useRef<HTMLInputElement>(null);
 
@@ -567,6 +589,52 @@ export function Lane() {
     nav('/lane/login');
   }
 
+  function parkCurrentCart() {
+    if (activeLines.length === 0) return;
+    const newParked: ParkedOrder = {
+      id: `parked-${Date.now()}`,
+      parkedAt: new Date().toISOString(),
+      cashierName: user.name,
+      customer,
+      lines: activeLines,
+      itemCount,
+      totalCents: totals.total,
+    };
+    setParkedOrders((prev) => [newParked, ...prev]);
+    setLines([]);
+    setSelected(null);
+    setCustomer(null);
+    notify(`Ticket parked with ${newParked.itemCount} items.`);
+    focusScan();
+  }
+
+  function handleResumeParked(order: ParkedOrder) {
+    if (activeLines.length > 0) {
+      if (!window.confirm('Current cart has items. Would you like to park the current cart before resuming?')) {
+        return;
+      }
+      parkCurrentCart();
+    }
+    setLines(order.lines);
+    setCustomer(order.customer);
+    setSelected(null);
+    setParkedOrders((prev) => prev.filter((p) => p.id !== order.id));
+    setShowParkedModal(false);
+    notify(`Resumed ticket for ${order.customer?.name ?? 'Walk-in Customer'}.`);
+    focusScan();
+  }
+
+  function handleDiscardParked(orderId: string) {
+    setParkedOrders((prev) => prev.filter((p) => p.id !== orderId));
+    notify('Parked ticket discarded.');
+  }
+
+  function handleAddManualLine(line: CartLine) {
+    setLines((prev) => [...prev, line]);
+    notify(`Added ${line.name} (${formatCents(line.unitPrice)}).`);
+    focusScan();
+  }
+
   const selectedLine = activeLines.find((l) => l.id === selected);
 
   return (
@@ -610,6 +678,33 @@ export function Lane() {
             title="Open Customer-Facing Display for Lane 1 in a new tab"
           >
             🖥️ CFD
+          </button>
+
+          {/* Employee Time Clock */}
+          <button
+            id="lane-clock-btn"
+            type="button"
+            className="btn btn-sm"
+            onClick={() => setShowTimeClockModal(true)}
+            title="Employee Time Clock (Punch In / Out)"
+          >
+            ⏱️ Clock
+          </button>
+
+          {/* Suspend / Park Ticket */}
+          <button
+            id="lane-park-btn"
+            type="button"
+            className="btn btn-sm"
+            onClick={activeLines.length > 0 ? parkCurrentCart : () => setShowParkedModal(true)}
+            title={activeLines.length > 0 ? 'Suspend/Park current ticket' : 'View parked tickets'}
+          >
+            ⏸️ {activeLines.length > 0 ? 'Park' : 'Parked'}
+            {parkedOrders.length > 0 && (
+              <span className="badge badge-snap" style={{ fontSize: '.75rem', padding: '.1rem .35rem', marginLeft: '.2rem' }}>
+                {parkedOrders.length}
+              </span>
+            )}
           </button>
 
           {/* Cash Drawer & Shift Management Button */}
@@ -747,6 +842,17 @@ export function Lane() {
           >
             Enter
           </button>
+
+          <button
+            id="open-ring-btn"
+            type="button"
+            className="btn btn-sm"
+            style={{ borderColor: 'var(--brand)', color: 'var(--brand)', whiteSpace: 'nowrap', padding: '.65rem .85rem' }}
+            onClick={() => setShowOpenRingModal(true)}
+            title="Manual Department / Open Ring"
+          >
+            🏷️ Open Ring
+          </button>
         </form>
 
         {activeLines.length === 0 ? (
@@ -757,9 +863,18 @@ export function Lane() {
                 Scan barcodes, enter PLUs, or type to search. Try these supermarket demo deals:
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.6rem' }}>
-                <button type="button" className="btn" style={{ fontSize: '.85rem', justifyContent: 'flex-start' }} onClick={() => scan('4046')}>
-                  🥑 Avocados (2 for $2 promo!)
+                <button type="button" className="btn" style={{ fontSize: '.85rem', justifyContent: 'flex-start', borderColor: 'var(--brand)', color: 'var(--brand)' }} onClick={() => setShowOpenRingModal(true)}>
+                  🏷️ Manual Dept Ring ($)
                 </button>
+                {parkedOrders.length > 0 ? (
+                  <button type="button" className="btn btn-primary" style={{ fontSize: '.85rem', justifyContent: 'flex-start' }} onClick={() => setShowParkedModal(true)}>
+                    ⏸️ Resume Parked ({parkedOrders.length})
+                  </button>
+                ) : (
+                  <button type="button" className="btn" style={{ fontSize: '.85rem', justifyContent: 'flex-start' }} onClick={() => scan('4046')}>
+                    🥑 Avocados (2 for $2 promo!)
+                  </button>
+                )}
                 <button type="button" className="btn" style={{ fontSize: '.85rem', justifyContent: 'flex-start' }} onClick={() => scan('070000000010')}>
                   🥛 Whole Milk 1 Gal ($3.99)
                 </button>
@@ -897,6 +1012,21 @@ export function Lane() {
             disabled={!activeLines.length}
           >
             Void Ticket
+          </button>
+
+          {/* Suspend / Park Current Cart */}
+          <button
+            id="park-ticket-btn"
+            className="btn"
+            onClick={activeLines.length > 0 ? parkCurrentCart : () => setShowParkedModal(true)}
+            title={activeLines.length > 0 ? 'Suspend/Park current ticket' : 'View suspended tickets'}
+          >
+            ⏸️ {activeLines.length > 0 ? 'Park Ticket' : 'View Parked'}
+            {parkedOrders.length > 0 && (
+              <span className="badge badge-snap" style={{ marginLeft: '.4rem' }}>
+                {parkedOrders.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -1193,6 +1323,35 @@ export function Lane() {
         <ReceiptModal
           receipt={receipt}
           onNewSale={handleNewSale}
+        />
+      )}
+
+      {/* Suspended / Parked Orders Modal */}
+      {showParkedModal && (
+        <ParkedModal
+          parkedOrders={parkedOrders}
+          onClose={() => { setShowParkedModal(false); focusScan(); }}
+          onResume={handleResumeParked}
+          onDiscard={handleDiscardParked}
+        />
+      )}
+
+      {/* Manual Department / Open Ring Modal */}
+      {showOpenRingModal && (
+        <OpenRingModal
+          onClose={() => { setShowOpenRingModal(false); focusScan(); }}
+          onAddLine={handleAddManualLine}
+        />
+      )}
+
+      {/* Employee Time Clock Modal */}
+      {showTimeClockModal && (
+        <TimeClockModal
+          tenant={user.tenantId ?? 'demo'}
+          storeId={user.storeId ?? 'cmvmicrb4000211bc1wq1mur8'}
+          defaultEmployeeNo={(user as any).employeeNo ?? ''}
+          onClose={() => { setShowTimeClockModal(false); focusScan(); }}
+          onSuccess={(msg) => notify(msg)}
         />
       )}
 

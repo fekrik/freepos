@@ -15,6 +15,7 @@ export function BackOffice() {
         <div className="logo" style={{ marginBottom: '1.5rem' }}><div className="logo-mark">F</div>FreshPOS</div>
         <NavLink to="/admin/products">Products</NavLink>
         <NavLink to="/admin/sales">Transactions</NavLink>
+        <NavLink to="/admin/timecards">Timecards</NavLink>
         <NavLink to="/admin/audit">Audit log</NavLink>
         <div style={{ flex: 1 }} />
         <span className="muted" style={{ fontSize: '.85rem', padding: '.5rem .8rem' }}>{user.name}</span>
@@ -24,6 +25,7 @@ export function BackOffice() {
         <Routes>
           <Route path="products" element={<Products />} />
           <Route path="sales" element={<Transactions />} />
+          <Route path="timecards" element={<TimeCards />} />
           <Route path="audit" element={<Audit />} />
         </Routes>
       </main>
@@ -282,4 +284,114 @@ function Audit() {
     </>
   );
 }
+
+function TimeCards() {
+  const [data, setData] = useState<{ items: any[]; total: number; totalHoursWorked: number }>({
+    items: [],
+    total: 0,
+    totalHoursWorked: 0,
+  });
+
+  const load = () => {
+    api<typeof data>('/time-clock/entries?take=100').then(setData).catch(() => {});
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  function exportCsv() {
+    if (data.items.length === 0) return;
+    const headers = ['Employee', 'EmployeeNo', 'Role', 'Store', 'ClockIn', 'ClockOut', 'HoursWorked', 'Note'];
+    const rows = data.items.map((i) => [
+      `"${i.user?.name || ''}"`,
+      i.user?.employeeNo || '',
+      i.user?.role || '',
+      `"${i.store?.name || ''}"`,
+      i.clockIn ? new Date(i.clockIn).toISOString() : '',
+      i.clockOut ? new Date(i.clockOut).toISOString() : '',
+      i.hoursWorked !== null ? i.hoursWorked : '',
+      `"${(i.note || '').replace(/"/g, '""')}"`,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `freshpos_timecards_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <>
+      <div className="toolbar">
+        <h1 style={{ flex: 1 }}>
+          Employee Timecards{' '}
+          <span className="muted" style={{ fontSize: '1rem', fontWeight: 500 }}>
+            {data.total} records · {data.totalHoursWorked} total hours
+          </span>
+        </h1>
+        <button className="btn" onClick={exportCsv} disabled={data.items.length === 0}>
+          📥 Export CSV
+        </button>
+      </div>
+
+      <section className="glass" style={{ overflow: 'hidden' }}>
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Role</th>
+                <th>Clock In</th>
+                <th>Clock Out</th>
+                <th>Hours</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }} className="muted">
+                    No timecard records found. Employees can punch in on the Lane login screen or Lane header.
+                  </td>
+                </tr>
+              ) : (
+                data.items.map((t) => (
+                  <tr key={t.id}>
+                    <td>
+                      <b>{t.user?.name}</b>
+                      <div className="muted" style={{ fontSize: '.8rem' }}>#{t.user?.employeeNo}</div>
+                    </td>
+                    <td style={{ textTransform: 'capitalize' }}>
+                      <span className="badge badge-muted">{t.user?.role}</span>
+                    </td>
+                    <td className="muted">
+                      {new Date(t.clockIn).toLocaleString()}
+                    </td>
+                    <td className="muted">
+                      {t.clockOut ? (
+                        new Date(t.clockOut).toLocaleString()
+                      ) : (
+                        <span className="badge badge-snap">Active Shift</span>
+                      )}
+                    </td>
+                    <td className="mono" style={{ fontWeight: 700, color: t.hoursWorked ? 'var(--brand)' : 'var(--muted)' }}>
+                      {t.hoursWorked !== null ? `${t.hoursWorked} hrs` : 'In progress'}
+                    </td>
+                    <td className="muted" style={{ fontSize: '.85rem' }}>
+                      {t.note || '—'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
+  );
+}
+
 

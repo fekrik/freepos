@@ -25,6 +25,7 @@ model Tenant {
   shifts      Shift[]
   sales       Sale[]
   customers   Customer[]
+  timeClocks  TimeClock[]
 }
 
 model Store {
@@ -45,6 +46,7 @@ model Store {
   userStores  UserStore[]
   shifts      Shift[]
   sales       Sale[]
+  timeClocks  TimeClock[]
 
   @@index([tenantId])
 }
@@ -92,6 +94,7 @@ model User {
   shifts          Shift[]
   sales           Sale[]
   drawerMovements DrawerMovement[]
+  timeClocks      TimeClock[]
 
   @@unique([tenantId, employeeNo])
   @@unique([tenantId, email])
@@ -379,5 +382,26 @@ model DrawerMovement {
   user  User  @relation(fields: [userId], references: [id])
 
   @@index([shiftId])
+}
+
+// ---------- Employee Time Clock ----------
+
+model TimeClock {
+  id          String    @id @default(cuid())
+  tenantId    String
+  userId      String
+  storeId     String
+  clockIn     DateTime  @default(now())
+  clockOut    DateTime?
+  hoursWorked Float?
+  note        String?
+  createdAt   DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  store  Store  @relation(fields: [storeId], references: [id])
+
+  @@index([tenantId, userId, clockIn])
+  @@index([storeId, clockIn])
 }
 

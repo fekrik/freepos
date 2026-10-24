@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, session, type Session } from '../api';
+import { TimeClockModal } from '../components/TimeClockModal';
 
 const LANE_KEY = 'freshpos.lane';
 interface LaneConfig { tenant: string; storeId: string; storeName: string }
@@ -15,6 +16,7 @@ export function LaneLogin() {
   const [pin, setPin] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showTimeClock, setShowTimeClock] = useState(false);
 
   const value = step === 'emp' ? emp : pin;
   const setValue = step === 'emp' ? setEmp : setPin;
@@ -107,8 +109,21 @@ export function LaneLogin() {
           ))}
         </div>
         <div className="error" style={{ textAlign: 'center' }}>{err}</div>
-        <button className="btn" style={{ fontSize: '.8rem' }} onClick={() => { localStorage.removeItem(LANE_KEY); setLane(null); }}>Change store</button>
+        <div style={{ display: 'flex', gap: '.6rem', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button className="btn" style={{ fontSize: '.8rem' }} onClick={() => { localStorage.removeItem(LANE_KEY); setLane(null); }}>Change store</button>
+          <button id="login-time-clock-btn" className="btn btn-primary" style={{ fontSize: '.8rem' }} onClick={() => setShowTimeClock(true)}>⏱️ Time Clock</button>
+        </div>
       </section>
+
+      {showTimeClock && (
+        <TimeClockModal
+          tenant={lane.tenant}
+          storeId={lane.storeId}
+          defaultEmployeeNo={emp}
+          onClose={() => setShowTimeClock(false)}
+          onSuccess={(msg) => setErr(msg)}
+        />
+      )}
     </main>
   );
 }

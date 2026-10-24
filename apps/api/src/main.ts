@@ -9,6 +9,7 @@ import { AuthController, AuthService } from './auth/auth.controller';
 import { CatalogController } from './catalog/catalog.controller';
 import { StoresController } from './stores/stores.controller';
 import { SalesController } from './sales/sales.controller';
+import { TimeClockController } from './timeclock/timeclock.controller';
 import { HealthController } from './health.controller';
 
 import { existsSync } from 'fs';
@@ -53,7 +54,14 @@ if (staticRoot) {
         ]
       : []),
   ],
-  controllers: [HealthController, AuthController, CatalogController, StoresController, SalesController],
+  controllers: [
+    HealthController,
+    AuthController,
+    CatalogController,
+    StoresController,
+    SalesController,
+    TimeClockController,
+  ],
   providers: [PrismaService, AuditService, AuthService, { provide: APP_GUARD, useClass: AuthGuard }],
 })
 class AppModule {}
