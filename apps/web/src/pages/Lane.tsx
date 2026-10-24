@@ -1348,8 +1348,8 @@ export function Lane() {
       {showTimeClockModal && (
         <TimeClockModal
           tenant={user.tenantId ?? 'demo'}
-          storeId={user.storeId ?? 'cmvmicrb4000211bc1wq1mur8'}
-          defaultEmployeeNo={(user as any).employeeNo ?? ''}
+          storeId={user.storeId ?? ''}
+          defaultEmployeeNo={user.employeeNo ?? ''}
           onClose={() => { setShowTimeClockModal(false); focusScan(); }}
           onSuccess={(msg) => notify(msg)}
         />

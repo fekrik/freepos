@@ -15,8 +15,8 @@ import { CurrentUser, Public, type AuthUser } from '../auth/auth.guard';
 import { parse } from '../auth/auth.controller';
 
 const PunchInput = z.object({
-  tenant: z.string(),
-  storeId: z.string(),
+  tenant: z.string().optional().default('demo'),
+  storeId: z.string().optional(),
   employeeNo: z.string(),
   pin: z.string().regex(/^\d{4,8}$/),
   note: z.string().optional(),
@@ -31,17 +31,37 @@ export class TimeClockController {
   async punch(@Body() body: unknown) {
     const input = parse(PunchInput, body);
 
+    const tenantFilter = input.tenant
+      ? {
+          OR: [
+            { tenantId: input.tenant },
+            { tenant: { slug: input.tenant } },
+          ],
+        }
+      : {};
+
     const user = await this.db.user.findFirst({
       where: {
         employeeNo: input.employeeNo,
         active: true,
-        tenant: { slug: input.tenant },
-        stores: { some: { storeId: input.storeId } },
+        ...tenantFilter,
+      },
+      include: {
+        stores: true,
       },
     });
 
     if (!user || !(await bcrypt.compare(input.pin, user.pinHash))) {
       throw new UnauthorizedException('Invalid employee # or PIN');
+    }
+
+    const storeId =
+      input.storeId ||
+      user.stores.find((s) => s.storeId === input.storeId)?.storeId ||
+      user.stores[0]?.storeId;
+
+    if (!storeId) {
+      throw new BadRequestException('Employee is not assigned to any store');
     }
 
     // Check if employee has an active (unclosed) clock-in
@@ -61,7 +81,7 @@ export class TimeClockController {
       const punch = await this.db.timeClock.create({
         data: {
           tenantId: user.tenantId,
-          storeId: input.storeId,
+          storeId,
           userId: user.id,
           clockIn: now,
           note: input.note,
@@ -70,7 +90,7 @@ export class TimeClockController {
 
       await this.audit.log(user.tenantId, 'time_clock.clock_in', {
         userId: user.id,
-        storeId: input.storeId,
+        storeId,
         entity: 'TimeClock',
         entityId: punch.id,
       });

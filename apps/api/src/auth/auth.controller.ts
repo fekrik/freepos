@@ -20,8 +20,15 @@ export function parse<T>(schema: z.ZodType<T>, body: unknown): T {
 export class AuthService {
   constructor(private db: PrismaService, private jwt: JwtService, private audit: AuditService) {}
 
-  private async issue(user: { id: string; tenantId: string; role: AuthUser['role']; name: string }, storeId?: string, ttl = '12h') {
-    const payload: AuthUser = { sub: user.id, tenantId: user.tenantId, role: user.role, name: user.name, storeId };
+  private async issue(user: { id: string; tenantId: string; role: AuthUser['role']; name: string; employeeNo?: string | null }, storeId?: string, ttl = '12h') {
+    const payload: AuthUser = {
+      sub: user.id,
+      tenantId: user.tenantId,
+      role: user.role,
+      name: user.name,
+      employeeNo: user.employeeNo ?? undefined,
+      storeId,
+    };
     return {
       token: await this.jwt.signAsync(payload, { expiresIn: ttl }),
       user: { ...payload, permissions: ROLE_PERMISSIONS[user.role] },

@@ -1,6 +1,6 @@
 export interface Session {
   token: string;
-  user: { sub: string; tenantId: string; role: string; name: string; storeId?: string; permissions: string[] };
+  user: { sub: string; tenantId: string; role: string; name: string; employeeNo?: string; storeId?: string; permissions: string[] };
 }
 
 export type SessionScope = 'lane' | 'admin';

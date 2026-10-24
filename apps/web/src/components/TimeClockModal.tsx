@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 
 interface TimeClockModalProps {
-  tenant: string;
-  storeId: string;
+  tenant?: string;
+  storeId?: string;
   defaultEmployeeNo?: string;
   onClose: () => void;
   onSuccess?: (msg: string) => void;
@@ -20,8 +20,8 @@ interface PunchResponse {
 }
 
 export function TimeClockModal({
-  tenant,
-  storeId,
+  tenant = 'demo',
+  storeId = '',
   defaultEmployeeNo = '',
   onClose,
   onSuccess,
@@ -29,14 +29,22 @@ export function TimeClockModal({
   const [employeeNo, setEmployeeNo] = useState(defaultEmployeeNo);
   const [pin, setPin] = useState('');
   const [note, setNote] = useState('');
+  const [activeField, setActiveField] = useState<'emp' | 'pin'>(defaultEmployeeNo ? 'pin' : 'emp');
   const [step, setStep] = useState<'input' | 'result'>('input');
   const [result, setResult] = useState<PunchResponse | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const activeField = defaultEmployeeNo ? 'pin' : employeeNo ? 'pin' : 'emp';
+  // Sync defaultEmployeeNo if it arrives or changes
+  useEffect(() => {
+    if (defaultEmployeeNo) {
+      setEmployeeNo(defaultEmployeeNo);
+      setActiveField('pin');
+    }
+  }, [defaultEmployeeNo]);
 
   function handleKeypad(digit: string) {
+    setErr('');
     if (activeField === 'emp') {
       if (digit === '⌫') setEmployeeNo((v) => v.slice(0, -1));
       else if (digit === 'C') setEmployeeNo('');
@@ -48,10 +56,42 @@ export function TimeClockModal({
     }
   }
 
+  // Keyboard navigation support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (step !== 'input') return;
+      if (e.target instanceof HTMLInputElement && e.target.type === 'text') return;
+
+      if (e.key >= '0' && e.key <= '9') {
+        handleKeypad(e.key);
+      } else if (e.key === 'Backspace') {
+        handleKeypad('⌫');
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeField === 'emp' && employeeNo) {
+          setActiveField('pin');
+        } else if (activeField === 'pin' && pin) {
+          handleSubmit();
+        }
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [step, activeField, employeeNo, pin]);
+
   async function handleSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault();
-    if (!employeeNo || !pin) {
-      setErr('Please enter both Employee # and PIN');
+    if (!employeeNo) {
+      setErr('Please enter your Employee Number');
+      setActiveField('emp');
+      return;
+    }
+    if (!pin) {
+      setErr('Please enter your PIN');
+      setActiveField('pin');
       return;
     }
 
@@ -62,8 +102,8 @@ export function TimeClockModal({
       const res = await api<PunchResponse>('/time-clock/punch', {
         method: 'POST',
         json: {
-          tenant,
-          storeId,
+          tenant: tenant || 'demo',
+          storeId: storeId || undefined,
           employeeNo,
           pin,
           note: note.trim() || undefined,
@@ -104,50 +144,87 @@ export function TimeClockModal({
         {step === 'input' ? (
           <>
             <div style={{ display: 'grid', gap: '.8rem' }}>
-              {!defaultEmployeeNo && (
-                <div>
-                  <label style={{ fontSize: '.85rem', color: 'var(--muted)', display: 'block', marginBottom: '.3rem' }}>
-                    Employee Number
-                  </label>
-                  <input
-                    className="input mono"
-                    placeholder="e.g. 101"
-                    value={employeeNo}
-                    onChange={(e) => setEmployeeNo(e.target.value)}
-                    autoFocus
-                  />
+              {/* Field 1: Employee Number */}
+              <div
+                style={{
+                  padding: '.6rem .8rem',
+                  borderRadius: 10,
+                  border: `2px solid ${activeField === 'emp' ? 'var(--brand)' : 'var(--border)'}`,
+                  background: activeField === 'emp' ? 'hsla(152, 68%, 46%, 0.06)' : 'var(--surface)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onClick={() => setActiveField('emp')}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.2rem' }}>
+                  <span style={{ fontSize: '.8rem', color: activeField === 'emp' ? 'var(--brand)' : 'var(--muted)', fontWeight: 600 }}>
+                    1. EMPLOYEE NUMBER
+                  </span>
+                  {activeField === 'emp' && (
+                    <span style={{ fontSize: '.75rem', color: 'var(--brand)', fontWeight: 700 }}>● Active Field</span>
+                  )}
                 </div>
-              )}
-
-              <div>
-                <label style={{ fontSize: '.85rem', color: 'var(--muted)', display: 'block', marginBottom: '.3rem' }}>
-                  {defaultEmployeeNo ? `PIN for Employee #${employeeNo}` : 'Enter PIN'}
-                </label>
-                <div
-                  className="input mono"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.5rem',
-                    letterSpacing: '.4rem',
-                    height: '48px',
-                  }}
-                >
-                  {pin ? '•'.repeat(pin.length) : <span className="muted" style={{ fontSize: '.9rem', letterSpacing: 'normal' }}>Enter PIN</span>}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span className="mono" style={{ fontSize: '1.4rem', fontWeight: 700, letterSpacing: '.1rem' }}>
+                    {employeeNo || <span className="muted" style={{ fontSize: '1rem', fontWeight: 400 }}>Tap or type (e.g. 3000)</span>}
+                  </span>
+                  {employeeNo && activeField === 'emp' && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary"
+                      style={{ fontSize: '.75rem', padding: '.25rem .6rem' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveField('pin');
+                      }}
+                    >
+                      Next ➔
+                    </button>
+                  )}
                 </div>
               </div>
 
+              {/* Field 2: Employee PIN */}
+              <div
+                style={{
+                  padding: '.6rem .8rem',
+                  borderRadius: 10,
+                  border: `2px solid ${activeField === 'pin' ? 'var(--brand)' : 'var(--border)'}`,
+                  background: activeField === 'pin' ? 'hsla(152, 68%, 46%, 0.06)' : 'var(--surface)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onClick={() => setActiveField('pin')}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.2rem' }}>
+                  <span style={{ fontSize: '.8rem', color: activeField === 'pin' ? 'var(--brand)' : 'var(--muted)', fontWeight: 600 }}>
+                    2. PIN CODE
+                  </span>
+                  {activeField === 'pin' && (
+                    <span style={{ fontSize: '.75rem', color: 'var(--brand)', fontWeight: 700 }}>● Active Field</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '36px' }}>
+                  {pin ? (
+                    <span className="mono" style={{ fontSize: '1.6rem', letterSpacing: '.4rem', color: 'var(--brand)' }}>
+                      {'•'.repeat(pin.length)}
+                    </span>
+                  ) : (
+                    <span className="muted" style={{ fontSize: '.95rem' }}>
+                      Enter 4-digit PIN (e.g. 3000)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Optional Shift Note */}
               <div>
-                <label style={{ fontSize: '.85rem', color: 'var(--muted)', display: 'block', marginBottom: '.3rem' }}>
-                  Optional Shift Note
-                </label>
                 <input
                   className="input"
-                  placeholder="e.g. Morning Shift, Covering Lunch..."
+                  placeholder="Optional shift note (e.g. Morning Shift, Covering Lunch...)"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  style={{ fontSize: '.9rem', padding: '.5rem .8rem' }}
+                  style={{ fontSize: '.85rem', padding: '.45rem .8rem' }}
                 />
               </div>
             </div>
@@ -172,7 +249,11 @@ export function TimeClockModal({
               ))}
             </div>
 
-            {err && <div className="error" style={{ textAlign: 'center' }}>{err}</div>}
+            {err && (
+              <div className="error" style={{ textAlign: 'center', padding: '.4rem', background: 'hsla(0, 72%, 51%, 0.1)', borderRadius: 6 }}>
+                ⚠️ {err}
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '.6rem', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: '.8rem' }}>
               <button type="button" className="btn" onClick={onClose} disabled={busy}>
@@ -183,7 +264,7 @@ export function TimeClockModal({
                 className="btn btn-primary"
                 style={{ padding: '.65rem 1.4rem', fontWeight: 700 }}
                 onClick={() => handleSubmit()}
-                disabled={busy || !pin || (!defaultEmployeeNo && !employeeNo)}
+                disabled={busy || !pin || !employeeNo}
               >
                 {busy ? 'Verifying...' : 'Punch Clock ✓'}
               </button>

@@ -117,8 +117,8 @@ export function LaneLogin() {
 
       {showTimeClock && (
         <TimeClockModal
-          tenant={lane.tenant}
-          storeId={lane.storeId}
+          tenant={lane?.tenant ?? tenant ?? 'demo'}
+          storeId={lane?.storeId ?? stores[0]?.id ?? ''}
           defaultEmployeeNo={emp}
           onClose={() => setShowTimeClock(false)}
           onSuccess={(msg) => setErr(msg)}

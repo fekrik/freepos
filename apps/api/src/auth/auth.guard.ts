@@ -11,6 +11,7 @@ export interface AuthUser {
   tenantId: string;
   role: RoleName;
   name: string;
+  employeeNo?: string;
   storeId?: string;
 }
 
