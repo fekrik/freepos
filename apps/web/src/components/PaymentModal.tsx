@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { formatCents, taxAfterSnap, type CartLine, type CartTotals, type Cents } from '@freshpos/shared';
+import { api } from '../api';
 
 export interface PaymentTender {
   tenderType: 'cash' | 'card' | 'ebt_snap' | 'ebt_cash';
@@ -18,6 +19,20 @@ interface Props {
   onFinalize: (payments: PaymentTender[]) => Promise<void>;
 }
 
+interface TerminalStatus {
+  configured: boolean;
+  mode: 'stripe' | 'simulated_fallback' | 'stripe_error';
+  message?: string;
+  error?: string;
+  reader?: {
+    id: string;
+    label: string;
+    status: string;
+    deviceType: string;
+    ipAddress?: string;
+  };
+}
+
 export function PaymentModal({ lines, baseTotals, onClose, onFinalize }: Props) {
   const [tenders, setTenders] = useState<PaymentTender[]>([]);
   const [activeTab, setActiveTab] = useState<'cash' | 'card' | 'ebt_snap'>('cash');
@@ -28,6 +43,14 @@ export function PaymentModal({ lines, baseTotals, onClose, onFinalize }: Props) 
   const [ebtAmount, setEbtAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Terminal state
+  const [terminalStatus, setTerminalStatus] = useState<TerminalStatus | null>(null);
+  const [terminalLoading, setTerminalLoading] = useState(false);
+  const [activePaymentIntentId, setActivePaymentIntentId] = useState<string | null>(null);
+  const [activeReaderId, setActiveReaderId] = useState<string | null>(null);
+  const [collectingCard, setCollectingCard] = useState(false);
+  const [pollingTimer, setPollingTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Calculate adjusted tax based on accumulated EBT SNAP tenders
   const snapPaidSoFar = tenders
@@ -52,6 +75,35 @@ export function PaymentModal({ lines, baseTotals, onClose, onFinalize }: Props) 
     });
     return list.slice(0, 5);
   }, [balanceRemaining, nextDollar]);
+
+  // Load terminal status when opening card tab
+  useEffect(() => {
+    if (activeTab === 'card' && !terminalStatus) {
+      setTerminalLoading(true);
+      api<TerminalStatus>('/terminal/status')
+        .then(setTerminalStatus)
+        .catch(() => {
+          setTerminalStatus({
+            configured: false,
+            mode: 'simulated_fallback',
+            reader: {
+              id: 'simulated-reader-demo',
+              label: 'Simulated WisePOS E (Local)',
+              status: 'online',
+              deviceType: 'simulated_wisepos_e',
+            },
+          });
+        })
+        .finally(() => setTerminalLoading(false));
+    }
+  }, [activeTab, terminalStatus]);
+
+  // Cleanup polling timer
+  useEffect(() => {
+    return () => {
+      if (pollingTimer) clearInterval(pollingTimer);
+    };
+  }, [pollingTimer]);
 
   async function applyTender(tender: PaymentTender) {
     const newTenders = [...tenders, tender];
@@ -89,19 +141,123 @@ export function PaymentModal({ lines, baseTotals, onClose, onFinalize }: Props) 
     });
   }
 
-  function handleCardSimulation() {
-    setCardProcessing(true);
+  async function handleStartTerminalPayment() {
     setError('');
-    setTimeout(() => {
-      setCardProcessing(false);
-      applyTender({
-        tenderType: 'card',
-        amountCents: balanceRemaining,
-        cardBrand: 'Visa',
-        last4: '4242',
-        authCode: `AUTH-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+    setCardProcessing(true);
+
+    if (!terminalStatus?.configured) {
+      // In simulated fallback mode (no STRIPE_SECRET_KEY set yet)
+      setTimeout(() => {
+        setCardProcessing(false);
+        applyTender({
+          tenderType: 'card',
+          amountCents: balanceRemaining,
+          cardBrand: 'Visa',
+          last4: '4242',
+          authCode: `AUTH-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+        });
+      }, 1000);
+      return;
+    }
+
+    try {
+      // 1. Create PaymentIntent on server and send to Reader
+      const res = await api<{
+        mode: string;
+        paymentIntentId: string;
+        readerId: string;
+        status: string;
+      }>('/terminal/create-payment-intent', {
+        method: 'POST',
+        json: { amountCents: balanceRemaining },
       });
-    }, 1200);
+
+      setActivePaymentIntentId(res.paymentIntentId);
+      setActiveReaderId(res.readerId);
+      setCollectingCard(true);
+
+      // Start polling status
+      const poll = setInterval(async () => {
+        try {
+          const status = await api<{
+            status: string;
+            cardBrand: string;
+            last4: string;
+            authCode: string;
+          }>(`/terminal/payment-status/${res.paymentIntentId}`);
+
+          if (status.status === 'succeeded') {
+            clearInterval(poll);
+            setCollectingCard(false);
+            setCardProcessing(false);
+            applyTender({
+              tenderType: 'card',
+              amountCents: balanceRemaining,
+              cardBrand: status.cardBrand || 'Visa',
+              last4: status.last4 || '4242',
+              authCode: status.authCode,
+            });
+          }
+        } catch (err) {
+          clearInterval(poll);
+          setCollectingCard(false);
+          setCardProcessing(false);
+          setError((err as Error).message);
+        }
+      }, 1500);
+
+      setPollingTimer(poll);
+    } catch (err) {
+      setCardProcessing(false);
+      setError((err as Error).message);
+    }
+  }
+
+  async function handleSimulateCustomerTap() {
+    if (!activeReaderId || !activePaymentIntentId) return;
+    try {
+      setCardProcessing(true);
+      const res = await api<{
+        status: string;
+        cardBrand: string;
+        last4: string;
+        authCode: string;
+      }>('/terminal/simulate-card', {
+        method: 'POST',
+        json: {
+          readerId: activeReaderId,
+          paymentIntentId: activePaymentIntentId,
+        },
+      });
+
+      if (res.status === 'succeeded') {
+        if (pollingTimer) clearInterval(pollingTimer);
+        setCollectingCard(false);
+        setCardProcessing(false);
+        applyTender({
+          tenderType: 'card',
+          amountCents: balanceRemaining,
+          cardBrand: res.cardBrand || 'Visa',
+          last4: res.last4 || '4242',
+          authCode: res.authCode,
+        });
+      }
+    } catch (err) {
+      setError((err as Error).message);
+      setCardProcessing(false);
+    }
+  }
+
+  async function handleCancelTerminal() {
+    if (pollingTimer) clearInterval(pollingTimer);
+    setCollectingCard(false);
+    setCardProcessing(false);
+    if (activeReaderId || activePaymentIntentId) {
+      api('/terminal/cancel', {
+        method: 'POST',
+        json: { readerId: activeReaderId, paymentIntentId: activePaymentIntentId },
+      }).catch(() => {});
+    }
   }
 
   function handleEbtSubmit() {
@@ -173,7 +329,7 @@ export function PaymentModal({ lines, baseTotals, onClose, onFinalize }: Props) 
             type="button"
             className={`btn ${activeTab === 'cash' ? 'btn-primary' : ''}`}
             onClick={() => setActiveTab('cash')}
-            disabled={submitting}
+            disabled={submitting || cardProcessing}
           >
             💵 Cash
           </button>
@@ -189,7 +345,7 @@ export function PaymentModal({ lines, baseTotals, onClose, onFinalize }: Props) 
             type="button"
             className={`btn ${activeTab === 'ebt_snap' ? 'btn-primary' : ''}`}
             onClick={() => setActiveTab('ebt_snap')}
-            disabled={submitting}
+            disabled={submitting || cardProcessing}
           >
             🍎 EBT SNAP
           </button>
@@ -243,26 +399,104 @@ export function PaymentModal({ lines, baseTotals, onClose, onFinalize }: Props) 
           </div>
         )}
 
-        {/* CARD TAB */}
+        {/* CARD TAB (STRIPE TERMINAL SERVER-DRIVEN) */}
         {activeTab === 'card' && (
           <div className="glass" style={{ padding: '1.5rem', textAlign: 'center', display: 'grid', gap: '1rem', background: 'hsl(160 14% 10% / .5)' }}>
-            <div style={{ fontSize: '2.5rem' }}>💳</div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', marginBottom: '.3rem' }}>Stripe Terminal Reader</h3>
-              <p className="muted" style={{ margin: 0, fontSize: '.9rem' }}>
-                {cardProcessing
-                  ? 'Connecting to EMV reader & processing card authorization...'
-                  : `Waiting for customer to tap, insert, or swipe card for ${formatCents(balanceRemaining)}`}
-              </p>
+            {/* Terminal Reader Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '.6rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+                <span style={{ fontSize: '1.3rem' }}>💳</span>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: 600, fontSize: '.9rem' }}>
+                    {terminalStatus?.reader?.label || 'Stripe Terminal Reader'}
+                  </div>
+                  <div className="muted" style={{ fontSize: '.75rem' }}>
+                    {terminalStatus?.configured ? 'Cloud Server-Driven Reader' : 'Local Reader Simulation'}
+                  </div>
+                </div>
+              </div>
+
+              <span
+                className="badge"
+                style={{
+                  background: terminalStatus?.configured ? 'hsla(152, 68%, 46%, 0.15)' : 'hsla(38, 92%, 50%, 0.15)',
+                  color: terminalStatus?.configured ? 'var(--brand)' : 'var(--warn)',
+                  fontWeight: 600,
+                  fontSize: '.75rem',
+                }}
+              >
+                {terminalLoading
+                  ? 'Connecting...'
+                  : terminalStatus?.configured
+                  ? '● Stripe Live / Test'
+                  : '⚡ Fallback Mode'}
+              </span>
             </div>
-            <button
-              type="button"
-              className="btn btn-primary btn-lg"
-              onClick={handleCardSimulation}
-              disabled={cardProcessing || submitting}
-            >
-              {cardProcessing ? 'Authorizing Payment...' : `Simulate Card Tap (${formatCents(balanceRemaining)})`}
-            </button>
+
+            {/* Reader State Box */}
+            <div style={{ padding: '1.25rem 0', display: 'grid', gap: '.6rem' }}>
+              <div style={{ fontSize: '2.4rem' }}>
+                {collectingCard ? '📲' : '💳'}
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: '1.15rem', margin: '0 0 .3rem 0' }}>
+                  {collectingCard
+                    ? `Waiting for Customer Card (${formatCents(balanceRemaining)})`
+                    : cardProcessing
+                    ? 'Processing Payment Intent...'
+                    : `Charge ${formatCents(balanceRemaining)} on Card`}
+                </h3>
+                <p className="muted" style={{ margin: 0, fontSize: '.88rem' }}>
+                  {collectingCard
+                    ? 'Reader display is active. Customer is prompted to Tap, Insert, or Swipe card.'
+                    : cardProcessing
+                    ? 'Creating terminal payment intent & waking reader...'
+                    : 'Customer taps Apple Pay / Google Pay, inserts EMV chip, or swipes card.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            {!collectingCard ? (
+              <div style={{ display: 'grid', gap: '.6rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-lg"
+                  onClick={handleStartTerminalPayment}
+                  disabled={cardProcessing || submitting || balanceRemaining <= 0}
+                  style={{ padding: '.85rem 1rem', fontWeight: 700, fontSize: '1.05rem' }}
+                >
+                  {cardProcessing ? 'Communicating with Terminal...' : `Charge Card (${formatCents(balanceRemaining)})`}
+                </button>
+
+                {!terminalStatus?.configured && (
+                  <div className="muted" style={{ fontSize: '.8rem', background: 'hsla(0, 0%, 100%, 0.03)', padding: '.5rem', borderRadius: 6 }}>
+                    💡 <em>To test with live Stripe Test cards, set <code>STRIPE_SECRET_KEY=sk_test_...</code> in your environment.</em>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '.6rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleSimulateCustomerTap}
+                  disabled={cardProcessing || submitting}
+                  style={{ padding: '.75rem 1rem', fontWeight: 700 }}
+                >
+                  💳 Simulate Customer Tap (Test Card)
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleCancelTerminal}
+                  style={{ fontSize: '.85rem' }}
+                >
+                  Cancel Reader Prompt
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -353,7 +587,7 @@ export function PaymentModal({ lines, baseTotals, onClose, onFinalize }: Props) 
           </div>
         )}
 
-        {error && <div className="error" style={{ textAlign: 'center' }}>{error}</div>}
+        {error && <div className="error" style={{ textAlign: 'center', marginTop: '.5rem' }}>⚠️ {error}</div>}
       </div>
     </div>
   );
