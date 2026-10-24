@@ -15,6 +15,15 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { ServeStaticModule } from '@nestjs/serve-static';
 
+if (typeof process.loadEnvFile === 'function') {
+  for (const envFile of ['.env', '../../.env.local', '../.env.local', '.env.local']) {
+    if (existsSync(envFile)) {
+      try { process.loadEnvFile(envFile); } catch {}
+      break;
+    }
+  }
+}
+
 const secret = process.env.JWT_SECRET;
 if (!secret || (process.env.NODE_ENV === 'production' && secret === 'change-me-in-production')) {
   throw new Error('JWT_SECRET must be set (and not the default in production)');
