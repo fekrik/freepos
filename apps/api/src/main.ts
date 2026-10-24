@@ -12,6 +12,7 @@ import { SalesController } from './sales/sales.controller';
 import { TimeClockController } from './timeclock/timeclock.controller';
 import { TerminalController } from './terminal/terminal.controller';
 import { TerminalService } from './terminal/terminal.service';
+import { InventoryController } from './inventory/inventory.controller';
 import { HealthController } from './health.controller';
 
 import { existsSync } from 'fs';
@@ -64,6 +65,7 @@ if (staticRoot) {
     SalesController,
     TimeClockController,
     TerminalController,
+    InventoryController,
   ],
   providers: [
     PrismaService,

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import { formatCents } from '@freshpos/shared';
 import { api, session, type Product } from '../api';
 import { CsvImportModal } from '../components/CsvImportModal';
+import { InventoryView, PurchaseOrdersView, SuppliersView } from '../components/InventoryPurchasingViews';
 
 interface Ref { id: string; name: string; rateBps?: number }
 
@@ -14,6 +15,9 @@ export function BackOffice() {
       <nav className="bo-nav">
         <div className="logo" style={{ marginBottom: '1.5rem' }}><div className="logo-mark">F</div>FreshPOS</div>
         <NavLink to="/admin/products">Products</NavLink>
+        <NavLink to="/admin/inventory">Inventory & Alerts</NavLink>
+        <NavLink to="/admin/purchase-orders">Purchase Orders</NavLink>
+        <NavLink to="/admin/suppliers">Suppliers & AP</NavLink>
         <NavLink to="/admin/sales">Transactions</NavLink>
         <NavLink to="/admin/timecards">Timecards</NavLink>
         <NavLink to="/admin/audit">Audit log</NavLink>
@@ -23,7 +27,11 @@ export function BackOffice() {
       </nav>
       <main className="bo-main">
         <Routes>
+          <Route index element={<Navigate to="products" replace />} />
           <Route path="products" element={<Products />} />
+          <Route path="inventory" element={<InventoryView />} />
+          <Route path="purchase-orders" element={<PurchaseOrdersView />} />
+          <Route path="suppliers" element={<SuppliersView />} />
           <Route path="sales" element={<Transactions />} />
           <Route path="timecards" element={<TimeCards />} />
           <Route path="audit" element={<Audit />} />

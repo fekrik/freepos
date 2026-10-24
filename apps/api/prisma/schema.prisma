@@ -23,9 +23,11 @@ model Tenant {
   products    Product[]
   auditLogs   AuditLog[]
   shifts      Shift[]
-  sales       Sale[]
-  customers   Customer[]
-  timeClocks  TimeClock[]
+  sales          Sale[]
+  customers      Customer[]
+  timeClocks     TimeClock[]
+  suppliers      Supplier[]
+  purchaseOrders PurchaseOrder[]
 }
 
 model Store {
@@ -40,13 +42,14 @@ model Store {
   /// How prefix-2 UPCs encode value: "price" or "weight".
   variableMeasureMode String @default("price")
 
-  registers   Register[]
-  inventory   Inventory[]
-  storePrices StorePrice[]
-  userStores  UserStore[]
-  shifts      Shift[]
-  sales       Sale[]
-  timeClocks  TimeClock[]
+  registers      Register[]
+  inventory      Inventory[]
+  storePrices    StorePrice[]
+  userStores     UserStore[]
+  shifts         Shift[]
+  sales          Sale[]
+  timeClocks     TimeClock[]
+  purchaseOrders PurchaseOrder[]
 
   @@index([tenantId])
 }
@@ -165,10 +168,12 @@ model Product {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  barcodes    Barcode[]
-  storePrices StorePrice[]
-  inventory   Inventory[]
-  saleLines   SaleLine[]
+  barcodes           Barcode[]
+  storePrices        StorePrice[]
+  inventory          Inventory[]
+  saleLines          SaleLine[]
+  supplierProducts   SupplierProduct[]
+  purchaseOrderLines PurchaseOrderLine[]
 
   @@unique([tenantId, plu])
   @@index([tenantId, name])
@@ -404,4 +409,95 @@ model TimeClock {
   @@index([tenantId, userId, clockIn])
   @@index([storeId, clockIn])
 }
+
+// ---------- Suppliers, Inventory & Purchase Orders ----------
+
+model Supplier {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  code         String?
+  contactName  String?
+  phone        String?
+  email        String?
+  address      String?
+  paymentTerms String?  @default("Net 30")
+  balanceCents Int      @default(0) // Money owed to supplier (AP balance)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  products       SupplierProduct[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([tenantId, name])
+}
+
+model SupplierProduct {
+  id            String  @id @default(cuid())
+  supplierId    String
+  productId     String
+  rank          Int     @default(1) // 1 = Primary, 2 = Secondary, 3 = Tertiary
+  vendorSku     String?
+  unitCostCents Int     @default(0)
+  casePackQty   Int     @default(1)
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, productId])
+  @@index([productId, rank])
+}
+
+enum PurchaseOrderStatus {
+  draft
+  ordered
+  received
+  canceled
+}
+
+model PurchaseOrder {
+  id            String              @id @default(cuid())
+  tenantId      String
+  storeId       String
+  supplierId    String
+  poNumber      String
+  status        PurchaseOrderStatus @default(ordered)
+  subtotalCents Int                 @default(0)
+  totalCents    Int                 @default(0)
+  paidCents     Int                 @default(0)
+  invoiceNo     String?
+  notes         String?
+  expectedAt    DateTime?
+  orderedAt     DateTime            @default(now())
+  receivedAt    DateTime?
+  createdById   String?
+  receivedById  String?
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id])
+  store    Store               @relation(fields: [storeId], references: [id])
+  supplier Supplier            @relation(fields: [supplierId], references: [id])
+  lines    PurchaseOrderLine[]
+
+  @@unique([tenantId, poNumber])
+  @@index([tenantId, storeId, status])
+  @@index([supplierId])
+}
+
+model PurchaseOrderLine {
+  id            String @id @default(cuid())
+  poId          String
+  productId     String
+  name          String
+  orderedQty    Int    // Units or thousandths of lb
+  receivedQty   Int    @default(0)
+  unitCostCents Int
+  lineTotalCents Int
+
+  po      PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id])
+
+  @@index([poId])
+}
+
 
