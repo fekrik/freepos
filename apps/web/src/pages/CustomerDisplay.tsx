@@ -22,6 +22,9 @@ export function CustomerDisplay() {
     return () => clearInterval(timer);
   }, []);
 
+  const searchParams = new URLSearchParams(window.location.search);
+  const laneId = searchParams.get('lane') || searchParams.get('register') || '1';
+
   // Listen to lane broadcasts
   useEffect(() => {
     const unsubscribe = subscribeCFD((state) => {
@@ -30,9 +33,9 @@ export function CustomerDisplay() {
         setFlashLastScanned(true);
         setTimeout(() => setFlashLastScanned(false), 800);
       }
-    });
+    }, laneId);
     return unsubscribe;
-  }, []);
+  }, [laneId]);
 
   // Auto-scroll cart lines to bottom when items are scanned
   useEffect(() => {
@@ -42,7 +45,11 @@ export function CustomerDisplay() {
   }, [cfdState]);
 
   const storeName = 'storeName' in cfdState ? cfdState.storeName : 'Fresh Market';
-  const registerName = 'registerName' in cfdState ? cfdState.registerName : 'Lane 1';
+  const registerName = 'registerName' in cfdState ? cfdState.registerName : `Lane ${laneId}`;
+  const cashierDisplay =
+    cfdState.type === 'cart' && cfdState.cashierName
+      ? `Cashier: ${cfdState.cashierName}`
+      : 'Customer Display';
 
   return (
     <div className="cfd-container">
@@ -52,7 +59,7 @@ export function CustomerDisplay() {
           <div className="cfd-brand-logo">F</div>
           <div>
             <div className="cfd-store-name">{storeName}</div>
-            <div className="muted cfd-reg-name">{registerName} · Customer Display</div>
+            <div className="muted cfd-reg-name">{registerName} · {cashierDisplay}</div>
           </div>
         </div>
 

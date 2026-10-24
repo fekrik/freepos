@@ -603,11 +603,11 @@ export function Lane() {
             className="btn btn-sm"
             onClick={() =>
               window.open(
-                '/cfd',
+                '/cfd?lane=1',
                 '_blank',
               )
             }
-            title="Open Customer-Facing Display (CFD) in a new tab or window"
+            title="Open Customer-Facing Display for Lane 1 in a new tab"
           >
             🖥️ CFD
           </button>
