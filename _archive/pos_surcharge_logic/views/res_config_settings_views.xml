@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_inherit_pos_surcharge" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.pos.surcharge</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="point_of_sale.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <!-- Inject settings inside the POS interface section block -->
+            <xpath expr="//block[@id='pos_interface_section']" position="inside">
+                <setting string="Credit Card Surcharge" help="Apply surcharge fee automatically when payment method is Credit Card.">
+                    <div class="content-group">
+                        <div class="row mt16">
+                            <label for="iface_surcharge" class="col-lg-3 o_light_label"/>
+                            <field name="iface_surcharge"/>
+                        </div>
+                        <div class="row mt16" invisible="not iface_surcharge">
+                            <label for="surcharge_percentage" class="col-lg-3 o_light_label"/>
+                            <field name="surcharge_percentage"/>
+                        </div>
+                        <div class="row mt16" invisible="not iface_surcharge">
+                            <label for="surcharge_product_id" class="col-lg-3 o_light_label"/>
+                            <field name="surcharge_product_id"/>
+                        </div>
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>

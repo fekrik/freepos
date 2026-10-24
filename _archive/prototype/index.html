@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odoo POS Surcharge E2E Prototype</title>
+    <!-- Premium Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navbar -->
+        <header class="navbar">
+            <div class="nav-brand">
+                <i class="fa-solid fa-cash-register brand-icon"></i>
+                <span class="brand-text">Odoo <span class="brand-sub">POS Portal</span></span>
+            </div>
+            <div class="nav-status">
+                <span class="status-indicator online"></span>
+                <span class="status-text">Active Session: Shop POS</span>
+            </div>
+        </header>
+
+        <!-- Main Workspace Grid -->
+        <main class="pos-workspace">
+            <!-- Left Side: Order / Cart Summary Panel -->
+            <section class="order-summary-panel">
+                <div class="panel-header">
+                    <h2><i class="fa-solid fa-shopping-cart text-primary"></i> Current Order</h2>
+                    <button id="clear-order-btn" class="btn btn-secondary-outline btn-sm"><i class="fa-solid fa-trash"></i> Clear</button>
+                </div>
+                
+                <div class="orderlines-container">
+                    <ul id="orderlines-list">
+                        <!-- Orderlines injected here via JS -->
+                        <li class="empty-cart-message">
+                            <i class="fa-solid fa-basket-shopping"></i>
+                            <p>Cart is empty. Add products to start.</p>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="totals-container">
+                    <div class="total-row">
+                        <span>Subtotal</span>
+                        <span id="subtotal-val">$0.00</span>
+                    </div>
+                    <div class="total-row">
+                        <span>Tax (10%)</span>
+                        <span id="tax-val">$0.00</span>
+                    </div>
+                    <div class="total-row surcharge-row hidden" id="surcharge-row-indicator">
+                        <span>CC Surcharge Fee</span>
+                        <span id="surcharge-val" class="text-warning">$0.00</span>
+                    </div>
+                    <div class="total-row total-grand">
+                        <span>Total Due</span>
+                        <span id="total-val">$0.00</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Side: POS Action Area -->
+            <section class="action-panel">
+                <!-- Navigation Tabs -->
+                <div class="tab-navbar">
+                    <button class="tab-btn active" id="tab-products" onclick="switchTab('products')">
+                        <i class="fa-solid fa-utensils"></i> Products
+                    </button>
+                    <button class="tab-btn" id="tab-payment" onclick="switchTab('payment')">
+                        <i class="fa-solid fa-credit-card"></i> Payment
+                    </button>
+                    <button class="tab-btn" id="tab-config" onclick="switchTab('config')">
+                        <i class="fa-solid fa-gears"></i> Backend Config
+                    </button>
+                </div>
+
+                <!-- Tab 1: Products Grid -->
+                <div id="content-products" class="tab-content active">
+                    <div class="grid-header">
+                        <h3>Select Products</h3>
+                        <p class="text-muted">Click items to add to the order</p>
+                    </div>
+                    <div class="products-grid" id="products-grid-container">
+                        <!-- Products generated here -->
+                    </div>
+                </div>
+
+                <!-- Tab 2: Payment Screen -->
+                <div id="content-payment" class="tab-content">
+                    <div class="payment-layout">
+                        <!-- Payment Methods List -->
+                        <div class="payment-methods-box">
+                            <h4>Select Payment Method</h4>
+                            <div class="payment-methods-grid">
+                                <button class="btn btn-payment-method" id="pay-cash" onclick="selectPaymentMethod('Cash')">
+                                    <i class="fa-solid fa-money-bill-wave"></i>
+                                    <span>Cash</span>
+                                </button>
+                                <button class="btn btn-payment-method" id="pay-credit" onclick="selectPaymentMethod('Credit Card')">
+                                    <i class="fa-solid fa-credit-card"></i>
+                                    <span>Credit Card</span>
+                                </button>
+                                <button class="btn btn-payment-method" id="pay-debit" onclick="selectPaymentMethod('Debit Card')">
+                                    <i class="fa-solid fa-money-check"></i>
+                                    <span>Debit Card (Excluded)</span>
+                                </button>
+                                <button class="btn btn-payment-method" id="pay-ebt" onclick="selectPaymentMethod('EBT Card')">
+                                    <i class="fa-solid fa-address-card"></i>
+                                    <span>EBT Card (Excluded)</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Active Payment Lines -->
+                        <div class="payment-lines-box">
+                            <h4>Active Payment Lines</h4>
+                            <div class="payment-lines-container">
+                                <table class="table-payment-lines">
+                                    <thead>
+                                        <tr>
+                                            <th>Method</th>
+                                            <th>Amount</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="payment-lines-body">
+                                        <!-- Active payment lines injected here -->
+                                        <tr class="empty-payment-row">
+                                            <td colspan="3" class="text-center text-muted">No payment lines added.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="payment-summary">
+                                <div class="summary-row">
+                                    <span>Remaining Unpaid:</span>
+                                    <span id="payment-remaining">$0.00</span>
+                                </div>
+                                <div class="summary-row font-weight-bold">
+                                    <span>Total Paid:</span>
+                                    <span id="payment-paid">$0.00</span>
+                                </div>
+                            </div>
+
+                            <div class="checkout-actions">
+                                <button id="btn-validate" class="btn btn-primary btn-block btn-lg" onclick="validateOrder()" disabled>
+                                    <i class="fa-solid fa-circle-check"></i> Validate Order & Print Receipt
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Config Panel (Odoo Settings Emulation) -->
+                <div id="content-config" class="tab-content">
+                    <div class="config-card">
+                        <div class="config-header">
+                            <h3><i class="fa-solid fa-sliders"></i> Odoo Backend POS Settings</h3>
+                            <p class="text-muted">Simulate the Store Manager POS configuration interface</p>
+                        </div>
+                        <div class="config-body">
+                            <!-- Toggle Surcharge -->
+                            <div class="form-group toggle-group">
+                                <div class="form-label-desc">
+                                    <label class="form-label font-weight-bold">Enable CC Surcharge</label>
+                                    <span class="form-desc">Inject Surcharge Line automatically on Credit Card checkout.</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="config-iface-surcharge" checked onchange="toggleConfigSurcharge()">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+
+                            <div id="surcharge-config-subfields">
+                                <!-- Configurable Surcharge Percentage -->
+                                <div class="form-group">
+                                    <label for="config-percentage" class="form-label font-weight-bold">CC Surcharge Fee Percentage (%)</label>
+                                    <div class="input-warning-container">
+                                        <input type="number" id="config-percentage" step="0.01" min="0" max="10" value="3.99" class="form-control" oninput="updateConfigPercentage(this.value)">
+                                        <div id="percentage-cap-warning" class="cap-warning-message hidden">
+                                            <i class="fa-solid fa-triangle-exclamation"></i> Legal Alert: In the U.S., surcharges are capped at the actual cost of processing, strictly under 4.0%.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Product selector info -->
+                                <div class="form-group">
+                                    <label class="form-label font-weight-bold">Surcharge Backend Product</label>
+                                    <select class="form-control" disabled>
+                                        <option selected>Credit Card Processing Fee (Type: Service)</option>
+                                    </select>
+                                    <span class="form-desc text-muted mt-2">Ledger Account: <strong>Surcharge Revenue</strong> (Income Ledger)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Receipt Modal / Overlay -->
+    <div id="receipt-modal" class="modal-overlay hidden">
+        <div class="receipt-container">
+            <div class="receipt-paper">
+                <div class="receipt-header">
+                    <h3 class="store-name">MY STORE</h3>
+                    <p class="store-info">123 POS AVENUE, NY, 10001</p>
+                    <p class="receipt-title">SALES RECEIPT</p>
+                </div>
+                
+                <div class="receipt-divider"></div>
+                
+                <div class="receipt-meta">
+                    <div>Date: <span id="receipt-date">2026-07-19 01:10</span></div>
+                    <div>Session ID: #POS-98127</div>
+                </div>
+                
+                <div class="receipt-divider"></div>
+                
+                <!-- Receipt Items -->
+                <table class="receipt-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-right">Qty</th>
+                            <th class="text-right">Price</th>
+                        </tr>
+                    </thead>
+                    <tbody id="receipt-items-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+                
+                <div class="receipt-divider"></div>
+                
+                <!-- Receipt Totals -->
+                <div class="receipt-totals">
+                    <div class="r-row">
+                        <span>Subtotal:</span>
+                        <span id="receipt-subtotal">$0.00</span>
+                    </div>
+                    <div class="r-row">
+                        <span>Tax (10%):</span>
+                        <span id="receipt-tax">$0.00</span>
+                    </div>
+                    <div class="r-row hidden" id="receipt-surcharge-row">
+                        <span class="font-weight-bold">Credit Card Surcharge:</span>
+                        <span id="receipt-surcharge" class="font-weight-bold">$0.00</span>
+                    </div>
+                    <div class="receipt-divider dotted"></div>
+                    <div class="r-row r-total">
+                        <span>TOTAL:</span>
+                        <span id="receipt-total">$0.00</span>
+                    </div>
+                </div>
+                
+                <div class="receipt-divider"></div>
+
+                <!-- Receipt Payments -->
+                <div class="receipt-payments">
+                    <h4>Payments</h4>
+                    <div id="receipt-payments-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                
+                <div class="receipt-footer">
+                    <p>THANK YOU FOR YOUR VISIT!</p>
+                    <i class="fa-solid fa-barcode barcode"></i>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeReceiptModal()">Close Portal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Application -->
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,384 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ---------- Tenancy ----------
+
+/// A customer of the SaaS (a grocery chain or single store owner).
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  stores      Store[]
+  users       User[]
+  departments Department[]
+  taxClasses  TaxClass[]
+  products    Product[]
+  auditLogs   AuditLog[]
+  shifts      Shift[]
+  sales       Sale[]
+  customers   Customer[]
+}
+
+model Store {
+  id            String  @id @default(cuid())
+  tenantId      String
+  tenant        Tenant  @relation(fields: [tenantId], references: [id])
+  name          String
+  address       String?
+  timezone      String  @default("America/New_York")
+  /// USDA FNS retailer number, required to accept EBT SNAP.
+  fnsNumber     String?
+  /// How prefix-2 UPCs encode value: "price" or "weight".
+  variableMeasureMode String @default("price")
+
+  registers   Register[]
+  inventory   Inventory[]
+  storePrices StorePrice[]
+  userStores  UserStore[]
+  shifts      Shift[]
+  sales       Sale[]
+
+  @@index([tenantId])
+}
+
+model Register {
+  id       String @id @default(cuid())
+  storeId  String
+  store    Store  @relation(fields: [storeId], references: [id])
+  name     String
+  /// Stripe Terminal reader id paired to this lane.
+  stripeReaderId String?
+  active   Boolean @default(true)
+
+  shifts Shift[]
+  sales  Sale[]
+
+  @@unique([storeId, name])
+}
+
+// ---------- Users & RBAC ----------
+
+enum RoleName {
+  cashier
+  supervisor
+  manager
+  admin
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  email        String?
+  name         String
+  role         RoleName @default(cashier)
+  /// bcrypt hash for back-office login (email + password).
+  passwordHash String?
+  /// Employee number + PIN for fast lane login.
+  employeeNo   String
+  pinHash      String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  stores          UserStore[]
+  shifts          Shift[]
+  sales           Sale[]
+  drawerMovements DrawerMovement[]
+
+  @@unique([tenantId, employeeNo])
+  @@unique([tenantId, email])
+}
+
+model UserStore {
+  userId  String
+  storeId String
+  user    User  @relation(fields: [userId], references: [id])
+  store   Store @relation(fields: [storeId], references: [id])
+
+  @@id([userId, storeId])
+}
+
+// ---------- Catalog ----------
+
+model Department {
+  id       String    @id @default(cuid())
+  tenantId String
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  name     String
+  code     String
+  products Product[]
+
+  @@unique([tenantId, code])
+}
+
+model TaxClass {
+  id       String    @id @default(cuid())
+  tenantId String
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  name     String
+  /// Rate in basis points (7.00% = 700).
+  rateBps  Int
+  products Product[]
+
+  @@unique([tenantId, name])
+}
+
+enum SoldBy {
+  each
+  weight
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  name          String
+  brand         String?
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id])
+  taxClassId    String
+  taxClass      TaxClass   @relation(fields: [taxClassId], references: [id])
+  soldBy        SoldBy   @default(each)
+  /// Default price in cents (per unit or per lb).
+  price         Int
+  cost          Int?
+  snapEligible  Boolean  @default(false)
+  wicEligible   Boolean  @default(false)
+  /// Minimum age to purchase (21 alcohol/tobacco), null if none.
+  minAge        Int?
+  depositCents  Int?
+  /// Produce PLU or variable-measure item code.
+  plu           String?
+  imageUrl      String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  barcodes    Barcode[]
+  storePrices StorePrice[]
+  inventory   Inventory[]
+  saleLines   SaleLine[]
+
+  @@unique([tenantId, plu])
+  @@index([tenantId, name])
+}
+
+model Barcode {
+  /// GTIN normalised to 14 digits.
+  code      String
+  tenantId  String
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, code])
+}
+
+model StorePrice {
+  storeId   String
+  productId String
+  store     Store   @relation(fields: [storeId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price     Int
+
+  @@id([storeId, productId])
+}
+
+model Inventory {
+  storeId   String
+  productId String
+  store     Store   @relation(fields: [storeId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Units, or thousandths of a lb for weighed items.
+  onHand    Int     @default(0)
+  reorderPoint Int?
+
+  @@id([storeId, productId])
+}
+
+// ---------- Sales & Shifts (Phase 2) ----------
+
+enum SaleStatus {
+  completed
+  voided
+  refunded
+}
+
+enum TenderType {
+  cash
+  card
+  ebt_snap
+  ebt_cash
+}
+
+enum ShiftStatus {
+  open
+  closed
+}
+
+model Shift {
+  id                 String      @id @default(cuid())
+  tenantId           String
+  storeId            String
+  registerId         String
+  userId             String
+  status             ShiftStatus @default(open)
+  openedAt           DateTime    @default(now())
+  closedAt           DateTime?
+  openingFloatCents  Int         @default(0)
+  closingCashCents   Int?
+  expectedCashCents  Int?
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  store           Store            @relation(fields: [storeId], references: [id])
+  register        Register         @relation(fields: [registerId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
+  sales           Sale[]
+  drawerMovements DrawerMovement[]
+
+  @@index([tenantId, storeId, registerId, status])
+}
+
+model Sale {
+  id                String     @id @default(cuid())
+  tenantId          String
+  storeId           String
+  registerId        String
+  userId            String
+  shiftId           String?
+  customerId        String?
+  saleNumber        String
+  status            SaleStatus @default(completed)
+  subtotalCents     Int
+  discountCents     Int        @default(0)
+  depositCents      Int        @default(0)
+  taxCents          Int        @default(0)
+  totalCents        Int
+  snapPaidCents     Int        @default(0)
+  snapEligibleCents Int        @default(0)
+  offlineCreated    Boolean    @default(false)
+  completedAt       DateTime   @default(now())
+
+  tenant   Tenant     @relation(fields: [tenantId], references: [id])
+  store    Store      @relation(fields: [storeId], references: [id])
+  register Register   @relation(fields: [registerId], references: [id])
+  user     User       @relation(fields: [userId], references: [id])
+  shift    Shift?     @relation(fields: [shiftId], references: [id])
+  customer Customer?  @relation(fields: [customerId], references: [id])
+  lines    SaleLine[]
+  payments Payment[]
+
+  @@unique([tenantId, saleNumber])
+  @@index([tenantId, storeId, completedAt])
+}
+
+model SaleLine {
+  id              String   @id @default(cuid())
+  saleId          String
+  productId       String
+  name            String
+  soldBy          SoldBy   @default(each)
+  quantity        Int      // Units or thousandths of lb
+  unitPriceCents  Int
+  fixedTotalCents Int?
+  taxRateBps      Int      @default(0)
+  taxCents        Int      @default(0)
+  snapEligible    Boolean  @default(false)
+  depositCents    Int      @default(0)
+  discountCents   Int      @default(0)
+  overrideReason  String?
+  voided          Boolean  @default(false)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+}
+
+model Payment {
+  id            String     @id @default(cuid())
+  saleId        String
+  tenderType    TenderType
+  amountCents   Int
+  tenderedCents Int?       // e.g. Customer hands $20.00 cash
+  changeCents   Int?       // e.g. $5.77 change given
+  cardBrand     String?    // Visa, Mastercard, Amex
+  last4         String?
+  authCode      String?
+  status        String     @default("completed")
+  createdAt     DateTime   @default(now())
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+}
+
+// ---------- Audit ----------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String?
+  storeId   String?
+  action    String
+  entity    String?
+  entityId  String?
+  data      Json?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+// ---------- Customers & Loyalty ----------
+
+model Customer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  phone     String
+  email     String?
+  points    Int      @default(0)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  sales  Sale[]
+
+  @@unique([tenantId, phone])
+  @@index([tenantId, phone])
+}
+
+// ---------- Cash Drawer Operations ----------
+
+enum DrawerMovementType {
+  no_sale
+  cash_drop
+  paid_in
+  paid_out
+}
+
+model DrawerMovement {
+  id          String             @id @default(cuid())
+  tenantId    String
+  shiftId     String
+  userId      String
+  type        DrawerMovementType
+  amountCents Int                @default(0)
+  reason      String
+  payee       String?
+  createdAt   DateTime           @default(now())
+
+  shift Shift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([shiftId])
+}
+

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: freshpos
+    runtime: node
+    plan: free
+    region: ohio
+    buildCommand: npm install && npm run build && npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000

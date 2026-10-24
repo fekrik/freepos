@@ -1,0 +1,26 @@
+{
+  "name": "freshpos",
+  "private": true,
+  "version": "0.1.0",
+  "description": "FreshPOS - cloud POS for grocery stores and supermarkets",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @freshpos/shared && npm run build -w @freshpos/web && npm run build -w @freshpos/api",
+    "start": "npm run start -w @freshpos/api",
+    "dev:api": "npm run start:dev -w @freshpos/api",
+    "dev:web": "npm run dev -w @freshpos/web",
+    "test": "npm run test --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w @freshpos/api",
+    "db:seed": "npm run db:seed -w @freshpos/api"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@neon/config": "^1.9.3",
+    "@neon/env": "^1.6.4"
+  }
+}
