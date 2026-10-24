@@ -699,10 +699,22 @@ export function Lane() {
             type="button"
             className={`btn btn-sm ${clockStatus?.isClockedIn ? 'btn-warn' : ''}`}
             onClick={() => setShowTimeClockModal(true)}
-            title={clockStatus?.isClockedIn ? `Clocked in since ${clockStatus.clockInTime} (${clockStatus.durationMinutes}m ago)` : 'Clock in for your shift'}
-            style={clockStatus?.isClockedIn ? { borderColor: 'var(--brand)', color: 'var(--brand)', fontWeight: 600 } : {}}
+            title={
+              clockStatus?.isClockedIn
+                ? `Clocked in since ${clockStatus.clockInTime} (${clockStatus.durationMinutes}m ago) · Click to Clock Out`
+                : 'Currently clocked out · Click to Clock In'
+            }
+            style={
+              clockStatus?.isClockedIn
+                ? { borderColor: 'var(--brand)', color: 'var(--brand)', fontWeight: 700 }
+                : { fontWeight: 600 }
+            }
           >
-            {clockStatus?.isClockedIn ? `🚪 Clock Out (${clockStatus.durationMinutes}m)` : '🟢 Clock In'}
+            {clockStatus === null
+              ? '⏱️ Clock In / Out'
+              : clockStatus.isClockedIn
+              ? `🚪 Clock Out (${clockStatus.durationMinutes}m)`
+              : '🟢 Clock In'}
           </button>
 
           {/* Suspend / Park Ticket */}
