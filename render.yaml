@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: ohio
-    buildCommand: npm install && npm run build && npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+    buildCommand: npm install --include=dev && npx prisma generate --schema=apps/api/prisma/schema.prisma && npm run build && npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
     startCommand: npm start
     envVars:
       - key: DATABASE_URL

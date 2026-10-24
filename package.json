@@ -17,7 +17,7 @@
     "db:seed": "npm run db:seed -w @freshpos/api"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "dependencies": {
     "@neon/config": "^1.9.3",
