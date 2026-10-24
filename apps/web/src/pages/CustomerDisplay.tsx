@@ -8,7 +8,9 @@ export function CustomerDisplay() {
     storeName: 'Fresh Market Supermarket',
     registerName: 'Lane 1',
   });
-  const [clock, setClock] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+  const [clock, setClock] = useState(
+    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+  );
   const [flashLastScanned, setFlashLastScanned] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -43,173 +45,79 @@ export function CustomerDisplay() {
   const registerName = 'registerName' in cfdState ? cfdState.registerName : 'Lane 1';
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: 'radial-gradient(ellipse at top, hsl(160 30% 10%), hsl(160 25% 4%))',
-        color: 'var(--text)',
-        display: 'flex',
-        flexDirection: 'column',
-        fontFamily: 'var(--font)',
-        userSelect: 'none',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="cfd-container">
       {/* Top Header Bar */}
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '1rem 2rem',
-          background: 'hsla(160, 20%, 8%, 0.85)',
-          backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid var(--border)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: 'linear-gradient(135deg, var(--brand), var(--brand-2))',
-              display: 'grid',
-              placeItems: 'center',
-              fontWeight: 800,
-              fontSize: '1.4rem',
-              color: '#042f1a',
-              boxShadow: '0 0 20px var(--brand-glow)',
-            }}
-          >
-            F
-          </div>
+      <header className="cfd-header">
+        <div className="cfd-brand">
+          <div className="cfd-brand-logo">F</div>
           <div>
-            <div style={{ fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.02em' }}>{storeName}</div>
-            <div className="muted" style={{ fontSize: '.85rem' }}>{registerName} · Customer Display</div>
+            <div className="cfd-store-name">{storeName}</div>
+            <div className="muted cfd-reg-name">{registerName} · Customer Display</div>
           </div>
         </div>
 
         {/* Loyalty Greeting or Live Clock */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+        <div className="cfd-header-right">
           {cfdState.type === 'cart' && cfdState.customer && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '.6rem',
-                background: 'hsla(152, 68%, 46%, 0.15)',
-                border: '1px solid var(--brand)',
-                padding: '.5rem 1rem',
-                borderRadius: 999,
-                fontSize: '.95rem',
-              }}
-            >
-              <span style={{ color: 'var(--brand)', fontWeight: 800 }}>★ FRESH REWARDS</span>
-              <span style={{ fontWeight: 600 }}>{cfdState.customer.name}</span>
-              <span className="muted">({cfdState.customer.points} pts)</span>
+            <div className="cfd-loyalty-chip">
+              <span className="cfd-loyalty-star">★ REWARDS</span>
+              <span className="cfd-loyalty-name">{cfdState.customer.name}</span>
+              <span className="muted" style={{ fontSize: '.8rem' }}>({cfdState.customer.points} pts)</span>
               {cfdState.customer.earnedPoints !== undefined && cfdState.customer.earnedPoints > 0 && (
-                <span className="badge badge-snap" style={{ fontSize: '.8rem' }}>
+                <span className="badge badge-snap" style={{ fontSize: '.75rem' }}>
                   +{cfdState.customer.earnedPoints} pts
                 </span>
               )}
             </div>
           )}
 
-          <div
-            className="mono"
-            style={{
-              fontSize: '1.2rem',
-              fontWeight: 600,
-              color: 'var(--muted)',
-              background: 'var(--surface)',
-              padding: '.4rem .9rem',
-              borderRadius: 8,
-              border: '1px solid var(--border)',
-            }}
-          >
-            {clock}
-          </div>
+          <div className="mono cfd-clock">{clock}</div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <main className="cfd-main">
         {/* STATE 1: IDLE / WELCOME SCREEN */}
         {cfdState.type === 'idle' && (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: '3rem',
-              textAlign: 'center',
-              gap: '2.5rem',
-            }}
-          >
-            <div className="animate-in" style={{ maxWidth: 700 }}>
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '.5rem',
-                  padding: '.4rem 1rem',
-                  borderRadius: 999,
-                  background: 'hsla(152, 68%, 46%, 0.15)',
-                  border: '1px solid var(--brand)',
-                  color: 'var(--brand)',
-                  fontWeight: 600,
-                  fontSize: '.95rem',
-                  marginBottom: '1.5rem',
-                }}
-              >
-                ✓ Cashier Lane Open & Ready
-              </div>
-              <h1 style={{ fontSize: '3rem', fontWeight: 800, margin: '0 0 1rem 0', letterSpacing: '-0.03em', lineHeight: 1.15 }}>
-                Welcome to <span style={{ background: 'linear-gradient(135deg, var(--brand), var(--brand-2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Fresh Market</span>
+          <div className="cfd-idle">
+            <div className="animate-in cfd-idle-hero">
+              <div className="cfd-idle-badge">✓ Cashier Lane Open & Ready</div>
+              <h1 className="cfd-idle-title">
+                Welcome to <span className="cfd-gradient-text">Fresh Market</span>
               </h1>
-              <p className="muted" style={{ fontSize: '1.25rem', margin: 0, lineHeight: 1.5 }}>
+              <p className="muted cfd-idle-sub">
                 Scan items with your cashier to begin checkout. Have your Fresh Rewards phone number or digital member card ready.
               </p>
             </div>
 
             {/* Grocery Deals Showcase Carousel Cards */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '1.25rem',
-                width: 'min(1100px, 94vw)',
-              }}
-            >
-              <div className="glass" style={{ padding: '1.5rem', borderRadius: 16, textAlign: 'left', border: '1px solid hsla(152, 68%, 46%, 0.3)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '.5rem' }}>🥑</div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Hass Avocados</div>
-                <div style={{ color: 'var(--brand)', fontWeight: 800, fontSize: '1.25rem', margin: '.2rem 0' }}>2 for $2.00</div>
-                <div className="muted" style={{ fontSize: '.85rem' }}>Regular $1.29 each · Save $0.58</div>
+            <div className="cfd-deals-grid">
+              <div className="glass cfd-deal-card cfd-deal-featured">
+                <div className="cfd-deal-icon">🥑</div>
+                <div className="cfd-deal-name">Hass Avocados</div>
+                <div className="cfd-deal-price">2 for $2.00</div>
+                <div className="muted cfd-deal-sub">Regular $1.29 each · Save $0.58</div>
               </div>
 
-              <div className="glass" style={{ padding: '1.5rem', borderRadius: 16, textAlign: 'left', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '.5rem' }}>🥤</div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Classic Cola 12pk</div>
-                <div style={{ color: 'var(--brand)', fontWeight: 800, fontSize: '1.25rem', margin: '.2rem 0' }}>3 for $18.00</div>
-                <div className="muted" style={{ fontSize: '.85rem' }}>Stock up & save $4.47</div>
+              <div className="glass cfd-deal-card">
+                <div className="cfd-deal-icon">🥤</div>
+                <div className="cfd-deal-name">Classic Cola 12pk</div>
+                <div className="cfd-deal-price">3 for $18.00</div>
+                <div className="muted cfd-deal-sub">Stock up & save $4.47</div>
               </div>
 
-              <div className="glass" style={{ padding: '1.5rem', borderRadius: 16, textAlign: 'left', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '.5rem' }}>🍞</div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Artisan Bakery</div>
-                <div style={{ color: 'var(--brand)', fontWeight: 800, fontSize: '1.25rem', margin: '.2rem 0' }}>Buy 2 Get 1 Free</div>
-                <div className="muted" style={{ fontSize: '.85rem' }}>Freshly baked this morning</div>
+              <div className="glass cfd-deal-card">
+                <div className="cfd-deal-icon">🍞</div>
+                <div className="cfd-deal-name">Artisan Bakery</div>
+                <div className="cfd-deal-price">Buy 2 Get 1 Free</div>
+                <div className="muted cfd-deal-sub">Freshly baked this morning</div>
               </div>
 
-              <div className="glass" style={{ padding: '1.5rem', borderRadius: 16, textAlign: 'left', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '.5rem' }}>💳</div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Payment Methods</div>
-                <div style={{ color: 'var(--snap)', fontWeight: 700, fontSize: '1.1rem', margin: '.2rem 0' }}>EBT SNAP Ready</div>
-                <div className="muted" style={{ fontSize: '.85rem' }}>Apple Pay, Google Pay, Chips</div>
+              <div className="glass cfd-deal-card">
+                <div className="cfd-deal-icon">💳</div>
+                <div className="cfd-deal-name">Payment Methods</div>
+                <div className="cfd-deal-price cfd-snap-text">EBT SNAP Ready</div>
+                <div className="muted cfd-deal-sub">Apple Pay, Google Pay, Chips</div>
               </div>
             </div>
           </div>
@@ -217,59 +125,21 @@ export function CustomerDisplay() {
 
         {/* STATE 2: ACTIVE SCANNING CART STATE */}
         {cfdState.type === 'cart' && (
-          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', height: '100%', overflow: 'hidden' }}>
+          <div className="cfd-cart-layout">
             {/* Left Column: Running Itemized Cart Lines */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                borderRight: '1px solid var(--border)',
-                background: 'hsla(160, 20%, 6%, 0.5)',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  padding: '1rem 1.5rem',
-                  borderBottom: '1px solid var(--border)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  background: 'var(--surface)',
-                }}
-              >
-                <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Your Grocery Cart</div>
-                <div className="muted" style={{ fontSize: '.9rem' }}>
+            <div className="cfd-cart-column">
+              <div className="cfd-cart-header">
+                <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>Your Grocery Cart</div>
+                <div className="muted" style={{ fontSize: '.88rem' }}>
                   {cfdState.totals.itemCount} {cfdState.totals.itemCount === 1 ? 'item' : 'items'}
                 </div>
               </div>
 
-              <div
-                ref={scrollRef}
-                style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  padding: '.5rem 1rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '.5rem',
-                }}
-              >
+              <div ref={scrollRef} className="cfd-cart-list">
                 {cfdState.lines.map((l) => (
-                  <div
-                    key={l.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '1rem 1.25rem',
-                      borderRadius: 12,
-                      background: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                    }}
-                  >
+                  <div key={l.id} className="cfd-cart-item">
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '.6rem', flexWrap: 'wrap' }}>
+                      <div className="cfd-item-name-row">
                         <span>{l.name}</span>
                         {l.snapEligible && <span className="badge badge-snap" style={{ fontSize: '.75rem' }}>SNAP</span>}
                         {l.isOverridden && (
@@ -283,7 +153,7 @@ export function CustomerDisplay() {
                           </span>
                         )}
                       </div>
-                      <div className="muted" style={{ fontSize: '.9rem', marginTop: '.25rem' }}>
+                      <div className="muted cfd-item-meta">
                         {l.fixedTotal !== undefined
                           ? 'Priced item'
                           : l.soldBy === 'weight'
@@ -293,12 +163,12 @@ export function CustomerDisplay() {
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="mono" style={{ fontSize: '1.3rem', fontWeight: 800 }}>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div className="mono cfd-item-price">
                         {formatCents(l.lineTotal)}
                       </div>
                       {l.discount && l.discount > 0 ? (
-                        <div style={{ fontSize: '.8rem', color: 'var(--brand)', fontWeight: 600 }}>
+                        <div className="cfd-item-discount">
                           Save {formatCents(l.discount)}
                         </div>
                       ) : null}
@@ -309,128 +179,69 @@ export function CustomerDisplay() {
             </div>
 
             {/* Right Column: Hero Showcase + Total Due */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                padding: '1.75rem',
-                background: 'hsla(160, 25%, 5%, 0.8)',
-                overflowY: 'auto',
-                gap: '1.5rem',
-              }}
-            >
+            <div className="cfd-summary-column">
               {/* Last Scanned Item Hero Card */}
               {cfdState.lastScanned && (
-                <div
-                  className="glass"
-                  style={{
-                    padding: '1.5rem',
-                    borderRadius: 16,
-                    border: flashLastScanned ? '2px solid var(--brand)' : '1px solid var(--border)',
-                    background: flashLastScanned ? 'hsla(152, 68%, 46%, 0.15)' : 'var(--surface)',
-                    transition: 'all 0.25s ease-out',
-                    transform: flashLastScanned ? 'scale(1.02)' : 'scale(1)',
-                  }}
-                >
-                  <div style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--brand)', letterSpacing: '.06em', textTransform: 'uppercase' }}>
-                    ✦ Just Scanned
-                  </div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: '.4rem' }}>
-                    {cfdState.lastScanned.name}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '.6rem' }}>
-                    <span className="muted" style={{ fontSize: '1.05rem' }}>{cfdState.lastScanned.quantityStr}</span>
-                    <span className="mono" style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text)' }}>
+                <div className={`glass cfd-last-scanned ${flashLastScanned ? 'flashing' : ''}`}>
+                  <div className="cfd-last-scanned-badge">✦ Just Scanned</div>
+                  <div className="cfd-last-scanned-name">{cfdState.lastScanned.name}</div>
+                  <div className="cfd-last-scanned-row">
+                    <span className="muted" style={{ fontSize: '1rem' }}>{cfdState.lastScanned.quantityStr}</span>
+                    <span className="mono cfd-last-scanned-price">
                       {cfdState.lastScanned.priceStr}
                     </span>
                   </div>
+                  {cfdState.lastScanned.promoDiscount && (
+                    <div className="cfd-last-scanned-promo">{cfdState.lastScanned.promoDiscount}</div>
+                  )}
                 </div>
               )}
 
               {/* Savings Banner */}
               {cfdState.totals.discounts > 0 && (
-                <div
-                  style={{
-                    background: 'linear-gradient(135deg, hsla(152, 68%, 46%, 0.2), hsla(152, 68%, 46%, 0.05))',
-                    border: '1px solid var(--brand)',
-                    padding: '1rem 1.25rem',
-                    borderRadius: 12,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
+                <div className="cfd-savings-banner">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
-                    <span style={{ fontSize: '1.5rem' }}>🎉</span>
+                    <span style={{ fontSize: '1.4rem' }}>🎉</span>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--brand)' }}>Total Store Savings</div>
-                      <div className="muted" style={{ fontSize: '.8rem' }}>Multi-buy deals & rewards applied</div>
+                      <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--brand)' }}>Total Store Savings</div>
+                      <div className="muted" style={{ fontSize: '.78rem' }}>Multi-buy deals & rewards applied</div>
                     </div>
                   </div>
-                  <div className="mono" style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--brand)' }}>
+                  <div className="mono" style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--brand)' }}>
                     -{formatCents(cfdState.totals.discounts)}
                   </div>
                 </div>
               )}
 
               {/* Order Summary & Grand Total */}
-              <div
-                className="glass"
-                style={{
-                  padding: '1.5rem',
-                  borderRadius: 16,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '.8rem',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', fontSize: '1.05rem' }}>
+              <div className="glass cfd-totals-card">
+                <div className="cfd-total-row">
                   <span>Subtotal</span>
-                  <span className="mono" style={{ color: 'var(--text)' }}>{formatCents(cfdState.totals.subtotal)}</span>
+                  <span className="mono">{formatCents(cfdState.totals.subtotal)}</span>
                 </div>
 
                 {cfdState.totals.deposits > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', fontSize: '1.05rem' }}>
+                  <div className="cfd-total-row">
                     <span>Bottle Deposits</span>
-                    <span className="mono" style={{ color: 'var(--text)' }}>{formatCents(cfdState.totals.deposits)}</span>
+                    <span className="mono">{formatCents(cfdState.totals.deposits)}</span>
                   </div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', fontSize: '1.05rem' }}>
+                <div className="cfd-total-row">
                   <span>Sales Tax</span>
-                  <span className="mono" style={{ color: 'var(--text)' }}>{formatCents(cfdState.totals.tax)}</span>
+                  <span className="mono">{formatCents(cfdState.totals.tax)}</span>
                 </div>
 
                 {cfdState.totals.snapEligibleTotal > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--snap)', fontSize: '1.05rem' }}>
+                  <div className="cfd-total-row cfd-snap-row">
                     <span>SNAP Food Eligible</span>
                     <span className="mono">{formatCents(cfdState.totals.snapEligibleTotal)}</span>
                   </div>
                 )}
 
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'baseline',
-                    paddingTop: '1rem',
-                    borderTop: '2px solid var(--border)',
-                    marginTop: '.5rem',
-                  }}
-                >
-                  <span style={{ fontSize: '1.5rem', fontWeight: 800 }}>TOTAL DUE</span>
-                  <span
-                    id="cfd-grand-total"
-                    className="mono"
-                    style={{
-                      fontSize: '3rem',
-                      fontWeight: 800,
-                      background: 'linear-gradient(135deg, var(--brand), var(--brand-2))',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
-                  >
+                <div className="cfd-grand-row">
+                  <span className="cfd-grand-label">TOTAL DUE</span>
+                  <span id="cfd-grand-total" className="mono cfd-grand-total">
                     {formatCents(cfdState.totals.total)}
                   </span>
                 </div>
@@ -441,41 +252,30 @@ export function CustomerDisplay() {
 
         {/* STATE 3: PAYMENT IN PROGRESS */}
         {cfdState.type === 'payment' && (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '2rem',
-              padding: '2rem',
-              textAlign: 'center',
-            }}
-          >
-            <div className="glass animate-in" style={{ padding: '2.5rem', borderRadius: 24, maxWidth: 540, width: '90%' }}>
-              <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>💳</div>
-              <h2 style={{ fontSize: '2rem', fontWeight: 800, margin: '0 0 .5rem 0' }}>Processing Payment</h2>
-              <p className="muted" style={{ fontSize: '1.1rem', margin: '0 0 2rem 0' }}>
+          <div className="cfd-modal-container">
+            <div className="glass animate-in cfd-payment-card">
+              <div style={{ fontSize: '3.2rem', marginBottom: '.8rem' }}>💳</div>
+              <h2 style={{ fontSize: '1.85rem', fontWeight: 800, margin: '0 0 .5rem 0' }}>Processing Payment</h2>
+              <p className="muted" style={{ fontSize: '1.05rem', margin: '0 0 1.75rem 0' }}>
                 Please tap card, insert chip, or enter EBT PIN on the pin pad
               </p>
 
-              <div style={{ background: 'var(--surface)', padding: '1.25rem', borderRadius: 16, display: 'flex', flexDirection: 'column', gap: '.8rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
+              <div className="cfd-payment-breakdown">
+                <div className="cfd-breakdown-row">
                   <span className="muted">Method</span>
                   <span style={{ fontWeight: 700, textTransform: 'uppercase' }}>{cfdState.tenderType}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
+                <div className="cfd-breakdown-row">
                   <span className="muted">Total Due</span>
                   <span className="mono" style={{ fontWeight: 700 }}>{formatCents(cfdState.totalDue)}</span>
                 </div>
                 {cfdState.amountPaid > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', color: 'var(--brand)' }}>
+                  <div className="cfd-breakdown-row" style={{ color: 'var(--brand)' }}>
                     <span>Amount Paid</span>
                     <span className="mono" style={{ fontWeight: 700 }}>{formatCents(cfdState.amountPaid)}</span>
                   </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.4rem', fontWeight: 800, borderTop: '1px solid var(--border)', paddingTop: '.8rem' }}>
+                <div className="cfd-breakdown-row cfd-breakdown-due">
                   <span>Remaining</span>
                   <span className="mono" style={{ color: 'var(--warn)' }}>{formatCents(cfdState.remainingDue)}</span>
                 </div>
@@ -486,53 +286,27 @@ export function CustomerDisplay() {
 
         {/* STATE 4: SALE COMPLETED / THANK YOU */}
         {cfdState.type === 'complete' && (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '2rem',
-              padding: '2rem',
-              textAlign: 'center',
-            }}
-          >
-            <div className="glass animate-in" style={{ padding: '3rem', borderRadius: 24, maxWidth: 560, width: '90%' }}>
-              <div
-                style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: '50%',
-                  background: 'hsla(152, 68%, 46%, 0.2)',
-                  border: '2px solid var(--brand)',
-                  color: 'var(--brand)',
-                  display: 'grid',
-                  placeItems: 'center',
-                  fontSize: '2.5rem',
-                  margin: '0 auto 1.5rem auto',
-                }}
-              >
-                ✓
-              </div>
-              <h1 style={{ fontSize: '2.5rem', fontWeight: 800, margin: '0 0 .5rem 0' }}>Thank You!</h1>
-              <p className="muted" style={{ fontSize: '1.15rem', margin: '0 0 2rem 0' }}>
+          <div className="cfd-modal-container">
+            <div className="glass animate-in cfd-complete-card">
+              <div className="cfd-complete-checkmark">✓</div>
+              <h1 style={{ fontSize: '2.2rem', fontWeight: 800, margin: '0 0 .5rem 0' }}>Thank You!</h1>
+              <p className="muted" style={{ fontSize: '1.1rem', margin: '0 0 1.75rem 0' }}>
                 Your transaction has been approved. Please take your receipt.
               </p>
 
-              <div style={{ background: 'var(--surface)', padding: '1.25rem', borderRadius: 16, display: 'flex', flexDirection: 'column', gap: '.8rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.15rem' }}>
+              <div className="cfd-payment-breakdown">
+                <div className="cfd-breakdown-row">
                   <span className="muted">Total Paid</span>
                   <span className="mono" style={{ fontWeight: 800 }}>{formatCents(cfdState.total)}</span>
                 </div>
                 {cfdState.changeGiven > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.4rem', fontWeight: 800, color: 'var(--brand)' }}>
+                  <div className="cfd-breakdown-row" style={{ color: 'var(--brand)', fontSize: '1.3rem', fontWeight: 800 }}>
                     <span>Your Change</span>
                     <span className="mono">{formatCents(cfdState.changeGiven)}</span>
                   </div>
                 )}
                 {cfdState.customer && (
-                  <div style={{ marginTop: '.5rem', borderTop: '1px solid var(--border)', paddingTop: '.8rem', fontSize: '.95rem', color: 'var(--brand)', fontWeight: 600 }}>
+                  <div className="cfd-rewards-earned">
                     ★ Fresh Rewards: You earned +{cfdState.customer.earnedPoints} points today! Total: {cfdState.customer.points + cfdState.customer.earnedPoints} pts
                   </div>
                 )}

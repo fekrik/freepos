@@ -596,19 +596,18 @@ export function Lane() {
             )}
           </div>
 
-          {/* Launch Customer-Facing Display (CFD) in secondary window */}
+          {/* Launch Customer-Facing Display (CFD) in secondary window or tab */}
           <button
             id="open-cfd-btn"
             type="button"
-            className="btn btn-sm hide-mobile"
+            className="btn btn-sm"
             onClick={() =>
               window.open(
                 '/cfd',
-                'FreshPOS_CFD',
-                'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no',
+                '_blank',
               )
             }
-            title="Open Customer-Facing Display pole screen in a pop-up window"
+            title="Open Customer-Facing Display (CFD) in a new tab or window"
           >
             🖥️ CFD
           </button>
