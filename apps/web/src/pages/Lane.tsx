@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   applyPromotions,
@@ -73,6 +73,19 @@ export function Lane() {
   const [showParkedModal, setShowParkedModal] = useState(false);
   const [showOpenRingModal, setShowOpenRingModal] = useState(false);
   const [showTimeClockModal, setShowTimeClockModal] = useState(false);
+  const [clockStatus, setClockStatus] = useState<{ isClockedIn: boolean; durationMinutes: number; clockInTime: string | null } | null>(null);
+
+  const refreshClockStatus = useCallback(() => {
+    api<{ isClockedIn: boolean; durationMinutes: number; clockInTime: string | null }>('/time-clock/status')
+      .then(setClockStatus)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshClockStatus();
+    const timer = setInterval(refreshClockStatus, 60000);
+    return () => clearInterval(timer);
+  }, [refreshClockStatus]);
 
   useEffect(() => {
     try {
@@ -680,15 +693,16 @@ export function Lane() {
             🖥️ CFD
           </button>
 
-          {/* Employee Time Clock */}
+          {/* Employee Time Clock (Dynamic Clock In / Out) */}
           <button
             id="lane-clock-btn"
             type="button"
-            className="btn btn-sm"
+            className={`btn btn-sm ${clockStatus?.isClockedIn ? 'btn-warn' : ''}`}
             onClick={() => setShowTimeClockModal(true)}
-            title="Employee Time Clock (Punch In / Out)"
+            title={clockStatus?.isClockedIn ? `Clocked in since ${clockStatus.clockInTime} (${clockStatus.durationMinutes}m ago)` : 'Clock in for your shift'}
+            style={clockStatus?.isClockedIn ? { borderColor: 'var(--brand)', color: 'var(--brand)', fontWeight: 600 } : {}}
           >
-            ⏱️ Clock
+            {clockStatus?.isClockedIn ? `🚪 Clock Out (${clockStatus.durationMinutes}m)` : '🟢 Clock In'}
           </button>
 
           {/* Suspend / Park Ticket */}
@@ -1351,7 +1365,7 @@ export function Lane() {
           storeId={user.storeId ?? ''}
           defaultEmployeeNo={user.employeeNo ?? ''}
           onClose={() => { setShowTimeClockModal(false); focusScan(); }}
-          onSuccess={(msg) => notify(msg)}
+          onSuccess={(msg) => { notify(msg); refreshClockStatus(); }}
         />
       )}
 

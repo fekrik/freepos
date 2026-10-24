@@ -146,20 +146,61 @@ export class TimeClockController {
     }
   }
 
+  @Public()
   @Get('status')
-  async getStatus(@CurrentUser() user: AuthUser) {
+  async getStatus(
+    @Query('employeeNo') employeeNo?: string,
+    @Query('tenant') tenant = 'demo',
+    @CurrentUser() user?: AuthUser,
+  ) {
+    let targetUserId = user?.sub;
+    let targetTenantId = user?.tenantId;
+    let employeeName = user?.name;
+
+    if (employeeNo) {
+      const u = await this.db.user.findFirst({
+        where: {
+          employeeNo,
+          active: true,
+          OR: [
+            { tenantId: tenant },
+            { tenant: { slug: tenant } },
+          ],
+        },
+      });
+      if (u) {
+        targetUserId = u.id;
+        targetTenantId = u.tenantId;
+        employeeName = u.name;
+      }
+    }
+
+    if (!targetUserId || !targetTenantId) {
+      return { isClockedIn: false, activePunch: null, durationMinutes: 0, clockInTime: null };
+    }
+
     const activePunch = await this.db.timeClock.findFirst({
       where: {
-        tenantId: user.tenantId,
-        userId: user.sub,
+        tenantId: targetTenantId,
+        userId: targetUserId,
         clockOut: null,
       },
       orderBy: { clockIn: 'desc' },
     });
 
+    const now = new Date();
+    const durationMinutes = activePunch
+      ? Math.max(0, Math.round((now.getTime() - new Date(activePunch.clockIn).getTime()) / 60000))
+      : 0;
+
     return {
       isClockedIn: Boolean(activePunch),
+      employeeName,
       activePunch,
+      durationMinutes,
+      clockInTime: activePunch
+        ? new Date(activePunch.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : null,
     };
   }
 

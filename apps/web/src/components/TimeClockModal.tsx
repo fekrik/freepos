@@ -19,6 +19,13 @@ interface PunchResponse {
   message: string;
 }
 
+interface StatusResponse {
+  isClockedIn: boolean;
+  employeeName?: string;
+  durationMinutes?: number;
+  clockInTime?: string | null;
+}
+
 export function TimeClockModal({
   tenant = 'demo',
   storeId = '',
@@ -32,6 +39,8 @@ export function TimeClockModal({
   const [activeField, setActiveField] = useState<'emp' | 'pin'>(defaultEmployeeNo ? 'pin' : 'emp');
   const [step, setStep] = useState<'input' | 'result'>('input');
   const [result, setResult] = useState<PunchResponse | null>(null);
+  const [status, setStatus] = useState<StatusResponse | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -42,6 +51,20 @@ export function TimeClockModal({
       setActiveField('pin');
     }
   }, [defaultEmployeeNo]);
+
+  // Check shift status for current employee number
+  useEffect(() => {
+    const trimmed = employeeNo.trim();
+    if (trimmed.length >= 3) {
+      setStatusLoading(true);
+      api<StatusResponse>(`/time-clock/status?employeeNo=${encodeURIComponent(trimmed)}&tenant=${encodeURIComponent(tenant || 'demo')}`)
+        .then((res) => setStatus(res))
+        .catch(() => setStatus(null))
+        .finally(() => setStatusLoading(false));
+    } else {
+      setStatus(null);
+    }
+  }, [employeeNo, tenant]);
 
   function handleKeypad(digit: string) {
     setErr('');
@@ -122,18 +145,37 @@ export function TimeClockModal({
     }
   }
 
+  const isClockedIn = status?.isClockedIn;
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
         className="glass modal"
-        style={{ width: 'min(440px, 94vw)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
+        style={{ width: 'min(440px, 94vw)', display: 'flex', flexDirection: 'column', gap: '1.15rem' }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.35rem' }}>⏱️ Employee Time Clock</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.35rem' }}>
+                {status ? (isClockedIn ? '🚪 Clock Out' : '🟢 Clock In') : '⏱️ Employee Time Clock'}
+              </h2>
+              {status && (
+                <span
+                  className="badge"
+                  style={{
+                    background: isClockedIn ? 'hsla(152, 68%, 46%, 0.18)' : 'hsla(212, 90%, 64%, 0.18)',
+                    color: isClockedIn ? 'var(--brand)' : 'var(--snap)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {isClockedIn ? 'Currently On Shift' : 'Off Shift'}
+                </span>
+              )}
+            </div>
             <div className="muted" style={{ fontSize: '.85rem', marginTop: '.2rem' }}>
-              Clock in and clock out with your employee PIN
+              {status?.employeeName ? `${status.employeeName} · ` : ''}Enter your PIN to {isClockedIn ? 'clock out' : 'clock in'}
             </div>
           </div>
           <button type="button" className="btn btn-sm" onClick={onClose}>
@@ -143,11 +185,49 @@ export function TimeClockModal({
 
         {step === 'input' ? (
           <>
-            <div style={{ display: 'grid', gap: '.8rem' }}>
+            {/* Live Shift Status Banner */}
+            {status && (
+              <div
+                style={{
+                  background: isClockedIn ? 'hsla(152, 68%, 46%, 0.1)' : 'hsla(212, 90%, 64%, 0.08)',
+                  border: `1px solid ${isClockedIn ? 'var(--brand)' : 'var(--border)'}`,
+                  borderRadius: 10,
+                  padding: '.65rem .85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '.9rem', color: isClockedIn ? 'var(--brand)' : 'var(--text)' }}>
+                    {isClockedIn ? '🟢 Active Shift in Progress' : '⚪ Currently Clocked Out'}
+                  </div>
+                  <div className="muted" style={{ fontSize: '.8rem', marginTop: '.1rem' }}>
+                    {isClockedIn
+                      ? `Clocked in at ${status.clockInTime} (${status.durationMinutes} min ago)`
+                      : 'Punching will start a new shift recording'}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontSize: '.8rem',
+                    fontWeight: 800,
+                    padding: '.25rem .6rem',
+                    borderRadius: 6,
+                    background: isClockedIn ? 'hsla(38, 92%, 50%, 0.18)' : 'hsla(152, 68%, 46%, 0.18)',
+                    color: isClockedIn ? 'var(--warn)' : 'var(--brand)',
+                  }}
+                >
+                  {isClockedIn ? 'ACTION: CLOCK OUT 🚪' : 'ACTION: CLOCK IN 🟢'}
+                </span>
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gap: '.75rem' }}>
               {/* Field 1: Employee Number */}
               <div
                 style={{
-                  padding: '.6rem .8rem',
+                  padding: '.55rem .8rem',
                   borderRadius: 10,
                   border: `2px solid ${activeField === 'emp' ? 'var(--brand)' : 'var(--border)'}`,
                   background: activeField === 'emp' ? 'hsla(152, 68%, 46%, 0.06)' : 'var(--surface)',
@@ -165,7 +245,7 @@ export function TimeClockModal({
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span className="mono" style={{ fontSize: '1.4rem', fontWeight: 700, letterSpacing: '.1rem' }}>
+                  <span className="mono" style={{ fontSize: '1.35rem', fontWeight: 700, letterSpacing: '.1rem' }}>
                     {employeeNo || <span className="muted" style={{ fontSize: '1rem', fontWeight: 400 }}>Tap or type (e.g. 3000)</span>}
                   </span>
                   {employeeNo && activeField === 'emp' && (
@@ -187,7 +267,7 @@ export function TimeClockModal({
               {/* Field 2: Employee PIN */}
               <div
                 style={{
-                  padding: '.6rem .8rem',
+                  padding: '.55rem .8rem',
                   borderRadius: 10,
                   border: `2px solid ${activeField === 'pin' ? 'var(--brand)' : 'var(--border)'}`,
                   background: activeField === 'pin' ? 'hsla(152, 68%, 46%, 0.06)' : 'var(--surface)',
@@ -204,14 +284,14 @@ export function TimeClockModal({
                     <span style={{ fontSize: '.75rem', color: 'var(--brand)', fontWeight: 700 }}>● Active Field</span>
                   )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '36px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '34px' }}>
                   {pin ? (
                     <span className="mono" style={{ fontSize: '1.6rem', letterSpacing: '.4rem', color: 'var(--brand)' }}>
                       {'•'.repeat(pin.length)}
                     </span>
                   ) : (
                     <span className="muted" style={{ fontSize: '.95rem' }}>
-                      Enter 4-digit PIN (e.g. 3000)
+                      Enter 4-digit PIN
                     </span>
                   )}
                 </div>
@@ -221,7 +301,7 @@ export function TimeClockModal({
               <div>
                 <input
                   className="input"
-                  placeholder="Optional shift note (e.g. Morning Shift, Covering Lunch...)"
+                  placeholder="Optional shift note (e.g. Lunch break, Covering register...)"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   style={{ fontSize: '.85rem', padding: '.45rem .8rem' }}
@@ -237,7 +317,7 @@ export function TimeClockModal({
                   type="button"
                   className="btn"
                   style={{
-                    padding: '.7rem 0',
+                    padding: '.65rem 0',
                     fontSize: '1.25rem',
                     fontWeight: 700,
                     color: k === 'C' ? 'var(--warn)' : k === '⌫' ? 'var(--danger)' : 'var(--text)',
@@ -261,12 +341,16 @@ export function TimeClockModal({
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className={`btn ${isClockedIn ? 'btn-warn' : 'btn-primary'}`}
                 style={{ padding: '.65rem 1.4rem', fontWeight: 700 }}
                 onClick={() => handleSubmit()}
                 disabled={busy || !pin || !employeeNo}
               >
-                {busy ? 'Verifying...' : 'Punch Clock ✓'}
+                {busy
+                  ? 'Verifying...'
+                  : isClockedIn
+                  ? '🚪 Confirm Clock Out'
+                  : '🟢 Confirm Clock In'}
               </button>
             </div>
           </>

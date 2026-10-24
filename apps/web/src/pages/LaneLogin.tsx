@@ -111,7 +111,7 @@ export function LaneLogin() {
         <div className="error" style={{ textAlign: 'center' }}>{err}</div>
         <div style={{ display: 'flex', gap: '.6rem', justifyContent: 'space-between', alignItems: 'center' }}>
           <button className="btn" style={{ fontSize: '.8rem' }} onClick={() => { localStorage.removeItem(LANE_KEY); setLane(null); }}>Change store</button>
-          <button id="login-time-clock-btn" className="btn btn-primary" style={{ fontSize: '.8rem' }} onClick={() => setShowTimeClock(true)}>⏱️ Time Clock</button>
+          <button id="login-time-clock-btn" className="btn btn-primary" style={{ fontSize: '.8rem' }} onClick={() => setShowTimeClock(true)}>⏱️ Clock In / Out</button>
         </div>
       </section>
 
