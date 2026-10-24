@@ -76,15 +76,20 @@ export function Lane() {
   const [clockStatus, setClockStatus] = useState<{ isClockedIn: boolean; durationMinutes: number; clockInTime: string | null } | null>(null);
 
   const refreshClockStatus = useCallback(() => {
-    api<{ isClockedIn: boolean; durationMinutes: number; clockInTime: string | null }>('/time-clock/status')
+    const emp = user.employeeNo ? `?employeeNo=${encodeURIComponent(user.employeeNo)}` : '';
+    api<{ isClockedIn: boolean; durationMinutes: number; clockInTime: string | null }>(`/time-clock/status${emp}`)
       .then(setClockStatus)
       .catch(() => {});
-  }, []);
+  }, [user.employeeNo]);
 
   useEffect(() => {
     refreshClockStatus();
-    const timer = setInterval(refreshClockStatus, 60000);
-    return () => clearInterval(timer);
+    const timer = setInterval(refreshClockStatus, 30000);
+    window.addEventListener('focus', refreshClockStatus);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', refreshClockStatus);
+    };
   }, [refreshClockStatus]);
 
   useEffect(() => {
@@ -1376,8 +1381,15 @@ export function Lane() {
           tenant={user.tenantId ?? 'demo'}
           storeId={user.storeId ?? ''}
           defaultEmployeeNo={user.employeeNo ?? ''}
-          onClose={() => { setShowTimeClockModal(false); focusScan(); }}
-          onSuccess={(msg) => { notify(msg); refreshClockStatus(); }}
+          onClose={() => {
+            setShowTimeClockModal(false);
+            refreshClockStatus();
+            focusScan();
+          }}
+          onSuccess={(msg) => {
+            notify(msg);
+            refreshClockStatus();
+          }}
         />
       )}
 

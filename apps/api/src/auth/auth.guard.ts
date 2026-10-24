@@ -29,16 +29,21 @@ export class AuthGuard implements CanActivate {
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const targets = [ctx.getHandler(), ctx.getClass()];
-    if (this.reflector.getAllAndOverride<boolean>(PUBLIC_KEY, targets)) return true;
+    const isPublic = this.reflector.getAllAndOverride<boolean>(PUBLIC_KEY, targets);
 
     const req = ctx.switchToHttp().getRequest();
     const token = (req.headers.authorization ?? '').replace(/^Bearer /, '');
-    if (!token) throw new UnauthorizedException();
-    try {
-      req.user = await this.jwt.verifyAsync<AuthUser>(token);
-    } catch {
-      throw new UnauthorizedException('Invalid or expired session');
+    if (token) {
+      try {
+        req.user = await this.jwt.verifyAsync<AuthUser>(token);
+      } catch {
+        if (!isPublic) throw new UnauthorizedException('Invalid or expired session');
+      }
     }
+
+    if (isPublic) return true;
+    if (!req.user) throw new UnauthorizedException();
+
     const perm = this.reflector.getAllAndOverride<Permission>(PERM_KEY, targets);
     if (perm && !hasPermission(req.user.role, perm)) throw new ForbiddenException(`Missing permission: ${perm}`);
     return true;
