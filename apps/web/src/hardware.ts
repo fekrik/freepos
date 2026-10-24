@@ -29,13 +29,15 @@ class EscPosHardwareManager {
   private serialPort: any | null = null;
   private deviceName: string | null = null;
   private lastPulseAt: string | null = null;
+  private lastPrintedText: string | null = null;
 
   getStatus() {
     return {
       connected: Boolean(this.usbDevice || this.serialPort),
-      transport: this.usbDevice ? 'WebUSB' : this.serialPort ? 'WebSerial' : null,
-      deviceName: this.deviceName,
+      transport: this.usbDevice ? 'WebUSB' : this.serialPort ? 'WebSerial' : 'Simulated 80mm ESC/POS',
+      deviceName: this.deviceName || 'Simulated 80mm Thermal Printer',
       lastPulseAt: this.lastPulseAt,
+      lastPrintedText: this.lastPrintedText,
       webUsbSupported: typeof navigator !== 'undefined' && 'usb' in navigator,
       webSerialSupported: typeof navigator !== 'undefined' && 'serial' in navigator,
     };
@@ -223,18 +225,120 @@ class EscPosHardwareManager {
     return new Uint8Array(chunks);
   }
 
-  async printReceipt(receipt: ReceiptData, kickDrawer = false): Promise<{ usedHardware: boolean }> {
+  /**
+   * Plays a realistic 80mm thermal paper feed + auto-cutter click sound
+   * via Web Audio API when printing on the simulated thermal printer.
+   */
+  playThermalPrintAndCutSound() {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Short stepper motor feed hum (180ms)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(340, ctx.currentTime + 0.18);
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+
+      // Sharp guillotine paper-cutter click at 220ms (`GS V`)
+      const cutOsc = ctx.createOscillator();
+      const cutGain = ctx.createGain();
+      cutOsc.type = 'square';
+      cutOsc.frequency.setValueAtTime(920, ctx.currentTime + 0.22);
+      cutOsc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.27);
+      cutGain.gain.setValueAtTime(0.15, ctx.currentTime + 0.22);
+      cutGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+      cutOsc.connect(cutGain);
+      cutGain.connect(ctx.destination);
+      cutOsc.start(ctx.currentTime + 0.22);
+      cutOsc.stop(ctx.currentTime + 0.28);
+    } catch {}
+  }
+
+  /**
+   * Formats the plain 42-column thermal spool text for inspection/simulation.
+   */
+  formatThermalSpoolText(receipt: ReceiptData): string {
+    const lines: string[] = [];
+    const padRow = (left: string, right: string, width = 42) => {
+      const space = Math.max(1, width - left.length - right.length);
+      return left.slice(0, width - right.length - 1) + ' '.repeat(space) + right;
+    };
+    const center = (s: string, width = 42) => {
+      const pad = Math.max(0, Math.floor((width - s.length) / 2));
+      return ' '.repeat(pad) + s;
+    };
+
+    lines.push('[ESC @] INIT PRINTER');
+    lines.push('[ESC a 1][ESC E 1]' + center(receipt.store.name.toUpperCase()));
+    if (receipt.store.address) lines.push(center(receipt.store.address));
+    if (receipt.store.fnsNumber) lines.push(center(`USDA SNAP FNS #${receipt.store.fnsNumber}`));
+    lines.push(center(`Receipt: ${receipt.saleNumber}`));
+    lines.push(center(new Date(receipt.completedAt).toLocaleString()));
+    lines.push(center(`${receipt.registerName} - Cashier: ${receipt.cashierName}`));
+    lines.push('-'.repeat(42));
+
+    for (const l of receipt.lines) {
+      const flags = `${l.snapEligible ? 'F' : ''}${l.taxRateBps > 0 ? 'T' : ''}`;
+      const rightStr = `${formatCents(l.lineTotal)}${flags ? ' ' + flags : ''}`;
+      lines.push(padRow(l.name, rightStr));
+      const qtyDetail =
+        l.soldBy === 'weight'
+          ? `  ${(l.quantity / 1000).toFixed(3)} lb @ ${formatCents(l.unitPrice)}/lb`
+          : `  ${l.quantity} @ ${formatCents(l.unitPrice)}`;
+      lines.push(qtyDetail);
+    }
+
+    lines.push('-'.repeat(42));
+    lines.push(padRow('SUBTOTAL', formatCents(receipt.totals.subtotal)));
+    if (receipt.totals.deposits > 0) {
+      lines.push(padRow('DEPOSITS', formatCents(receipt.totals.deposits)));
+    }
+    lines.push(padRow('TAX', formatCents(receipt.totals.tax)));
+    lines.push('[ESC E 1]' + padRow('TOTAL', formatCents(receipt.totals.total)) + '[ESC E 0]');
+    lines.push('-'.repeat(42));
+
+    for (const p of receipt.payments) {
+      const label = `${p.tenderType.toUpperCase()}${p.last4 ? ` *${p.last4}` : ''}`;
+      lines.push(padRow(label, formatCents(p.amountCents)));
+      if (p.changeCents && p.changeCents > 0) {
+        lines.push(padRow('CHANGE DUE', formatCents(p.changeCents)));
+      }
+    }
+
+    lines.push('');
+    lines.push(center('THANK YOU FOR SHOPPING FRESH!'));
+    lines.push('[GS V 66 0] --- AUTO PAPER CUT ---');
+    return lines.join('\n');
+  }
+
+  async printReceipt(
+    receipt: ReceiptData,
+    kickDrawer = false,
+  ): Promise<{ usedHardware: boolean; byteLength: number; spoolText: string }> {
     const payload = this.buildEscPosReceipt(receipt, kickDrawer);
+    const spoolText = this.formatThermalSpoolText(receipt);
+    this.lastPrintedText = spoolText;
+
     if (this.usbDevice || this.serialPort) {
       try {
         const sent = await this.sendBytes(payload);
-        if (sent) return { usedHardware: true };
+        if (sent) {
+          return { usedHardware: true, byteLength: payload.byteLength, spoolText };
+        }
       } catch (e) {
-        console.warn('Hardware print failed, falling back to browser print:', e);
+        console.warn('Hardware print failed, falling back to simulated thermal print:', e);
       }
     }
-    window.print();
-    return { usedHardware: false };
+
+    // Simulated 80mm ESC/POS thermal print (no OS dialog popup!)
+    this.playThermalPrintAndCutSound();
+    return { usedHardware: false, byteLength: payload.byteLength, spoolText };
   }
 }
 

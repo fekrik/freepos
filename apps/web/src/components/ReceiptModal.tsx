@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { formatCents, type Cents } from '@freshpos/shared';
 import { printerHardware } from '../hardware';
 
@@ -58,25 +58,93 @@ interface Props {
 }
 
 export function ReceiptModal({ receipt, onNewSale }: Props) {
+  const [printStatus, setPrintStatus] = useState<{
+    message: string;
+    spoolText: string;
+    showRaw: boolean;
+  } | null>(null);
+
+  async function handleThermalPrint() {
+    const res = await printerHardware.printReceipt(receipt);
+    setPrintStatus({
+      message: res.usedHardware
+        ? `✓ Sent ${res.byteLength} bytes to USB/Serial ESC/POS printer & auto-cut!`
+        : `✓ Simulated 80mm ESC/POS Thermal Print (${res.byteLength} bytes) & Paper Cut (GS V)!`,
+      spoolText: res.spoolText,
+      showRaw: false,
+    });
+  }
+
   return (
     <div className="modal-backdrop">
-      <div className="glass modal animate-in" style={{ width: 'min(480px, 95vw)', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontSize: '1.25rem' }}>Receipt</h2>
-          <div style={{ display: 'flex', gap: '.5rem' }}>
+      <div className="glass modal animate-in" style={{ width: 'min(500px, 95vw)', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '.5rem' }}>
+          <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Receipt</h2>
+          <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap' }}>
+            <button
+              id="thermal-print-btn"
+              type="button"
+              className="btn"
+              style={{ padding: '.4rem .75rem', fontSize: '.85rem', borderColor: 'var(--brand)', color: 'var(--brand)', fontWeight: 600 }}
+              onClick={handleThermalPrint}
+            >
+              🖨️ Print (80mm)
+            </button>
             <button
               type="button"
               className="btn"
-              style={{ padding: '.4rem .8rem', fontSize: '.85rem' }}
-              onClick={() => printerHardware.printReceipt(receipt)}
+              style={{ padding: '.4rem .65rem', fontSize: '.8rem' }}
+              onClick={() => window.print()}
+              title="Open system PDF / OS print dialog"
             >
-              🖨️ Print (80mm)
+              📄 OS Print
             </button>
             <button type="button" className="btn btn-primary" style={{ padding: '.4rem .8rem', fontSize: '.85rem' }} onClick={onNewSale}>
               + New Sale
             </button>
           </div>
         </div>
+
+        {printStatus && (
+          <div
+            style={{
+              background: 'hsla(152, 68%, 46%, 0.14)',
+              border: '1px solid var(--brand)',
+              borderRadius: 8,
+              padding: '.65rem .85rem',
+              fontSize: '.82rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.5rem' }}>
+              <span style={{ color: 'var(--brand)', fontWeight: 700 }}>{printStatus.message}</span>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{ fontSize: '.72rem', padding: '.15rem .45rem' }}
+                onClick={() => setPrintStatus({ ...printStatus, showRaw: !printStatus.showRaw })}
+              >
+                {printStatus.showRaw ? 'Hide ESC/POS Spool' : 'View ESC/POS Spool'}
+              </button>
+            </div>
+            {printStatus.showRaw && (
+              <pre
+                className="mono"
+                style={{
+                  marginTop: '.5rem',
+                  padding: '.6rem',
+                  background: '#0a0f0d',
+                  color: '#a7f3d0',
+                  borderRadius: 6,
+                  fontSize: '.72rem',
+                  overflowX: 'auto',
+                  lineHeight: 1.35,
+                }}
+              >
+                {printStatus.spoolText}
+              </pre>
+            )}
+          </div>
+        )}
 
         {/* Thermal receipt paper preview */}
         <div
