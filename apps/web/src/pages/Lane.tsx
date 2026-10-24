@@ -21,6 +21,8 @@ import { ReturnModal } from '../components/ReturnModal';
 import { ParkedModal, type ParkedOrder } from '../components/ParkedModal';
 import { OpenRingModal } from '../components/OpenRingModal';
 import { TimeClockModal } from '../components/TimeClockModal';
+import { HardwareModal } from '../components/HardwareModal';
+import { getReceiptMode, printerHardware, scaleHardware } from '../hardware';
 import { queueOfflineSale, getPendingOfflineSales, removeOfflineSale, type OfflineSalePayload } from '../offline';
 import { broadcastCFD } from '../cfd';
 
@@ -73,7 +75,16 @@ export function Lane() {
   const [showParkedModal, setShowParkedModal] = useState(false);
   const [showOpenRingModal, setShowOpenRingModal] = useState(false);
   const [showTimeClockModal, setShowTimeClockModal] = useState(false);
+  const [showHardwareModal, setShowHardwareModal] = useState(false);
   const [clockStatus, setClockStatus] = useState<{ isClockedIn: boolean; durationMinutes: number; clockInTime: string | null } | null>(null);
+
+  // Subscribe to live RS-232 / USB counter scale readings when weigh modal is open
+  useEffect(() => {
+    if (!weighFor) return;
+    return scaleHardware.subscribe((lbs) => {
+      if (lbs > 0) setWeight(lbs.toFixed(3));
+    });
+  }, [weighFor]);
 
   const refreshClockStatus = useCallback(() => {
     const emp = user.employeeNo ? `?employeeNo=${encodeURIComponent(user.employeeNo)}` : '';
@@ -568,10 +579,26 @@ export function Lane() {
     }
 
     setShowPayment(false);
-    setReceipt(receiptData);
     setLines([]);
     setSelected(null);
     setCustomer(null);
+
+    // Trigger RJ12 cash drawer kick pulse if cash was tendered
+    const hasCash = payments.some((p) => p.tenderType === 'cash');
+    if (hasCash) {
+      printerHardware.kickCashDrawer().catch(() => {});
+    }
+
+    const rMode = getReceiptMode();
+    if (rMode === 'auto') {
+      printerHardware.printReceipt(receiptData, false).catch(() => {});
+      setReceipt(receiptData);
+    } else if (rMode === 'none') {
+      notify(`Sale ${receiptData.saleNumber} complete (${formatCents(finalTotal)}).`);
+      focusScan();
+    } else {
+      setReceipt(receiptData);
+    }
 
     broadcastCFD({
       type: 'complete',
@@ -696,6 +723,17 @@ export function Lane() {
             title="Open Customer-Facing Display for Lane 1 in a new tab"
           >
             🖥️ CFD
+          </button>
+
+          {/* Hardware & Peripherals Setup (Printer, Drawer, Scale, Stripe Reader) */}
+          <button
+            id="lane-hardware-btn"
+            type="button"
+            className="btn btn-sm"
+            onClick={() => setShowHardwareModal(true)}
+            title="Configure ESC/POS Printer, Cash Drawer, RS-232 Scale & Stripe Reader"
+          >
+            🔌 Hardware
           </button>
 
           {/* Employee Time Clock (Dynamic Clock In / Out) */}
@@ -1183,7 +1221,10 @@ export function Lane() {
       {weighFor && (
         <div className="modal-backdrop" onClick={() => setWeighFor(null)}>
           <form className="glass modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); confirmWeight(); }}>
-            <h2>{weighFor.name}</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0 }}>{weighFor.name}</h2>
+              <span className="badge badge-snap">⚖️ SCALE READY</span>
+            </div>
             <span className="muted">{formatCents(weighFor.price)} / lb · place item on scale or enter weight</span>
             <input
               id="weight-input"
@@ -1194,6 +1235,30 @@ export function Lane() {
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
             />
+            <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap' }}>
+              {[0.5, 1.0, 1.5, 2.25].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className="btn btn-sm"
+                  style={{ flex: 1 }}
+                  onClick={() => setWeight(preset.toFixed(3))}
+                >
+                  {preset} lb
+                </button>
+              ))}
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{ borderColor: 'var(--brand)', color: 'var(--brand)' }}
+                onClick={() => {
+                  const sim = scaleHardware.simulateScaleRead();
+                  setWeight(sim.toFixed(3));
+                }}
+              >
+                ⚖️ Read Scale
+              </button>
+            </div>
             <button className="btn btn-primary btn-lg" type="submit">
               Add {weight && parseFloat(weight) > 0 ? formatCents(Math.round(weighFor.price * parseFloat(weight))) : ''}
             </button>
@@ -1390,6 +1455,17 @@ export function Lane() {
             notify(msg);
             refreshClockStatus();
           }}
+        />
+      )}
+
+      {/* Hardware & Peripherals Modal */}
+      {showHardwareModal && (
+        <HardwareModal
+          onClose={() => {
+            setShowHardwareModal(false);
+            focusScan();
+          }}
+          onNotify={notify}
         />
       )}
 

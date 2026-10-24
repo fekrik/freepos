@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatCents, type Cents } from '@freshpos/shared';
+import { printerHardware } from '../hardware';
 
 export interface ReceiptData {
   saleNumber: string;
@@ -63,8 +64,13 @@ export function ReceiptModal({ receipt, onNewSale }: Props) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ fontSize: '1.25rem' }}>Receipt</h2>
           <div style={{ display: 'flex', gap: '.5rem' }}>
-            <button type="button" className="btn" style={{ padding: '.4rem .8rem', fontSize: '.85rem' }} onClick={() => window.print()}>
-              🖨️ Print
+            <button
+              type="button"
+              className="btn"
+              style={{ padding: '.4rem .8rem', fontSize: '.85rem' }}
+              onClick={() => printerHardware.printReceipt(receipt)}
+            >
+              🖨️ Print (80mm)
             </button>
             <button type="button" className="btn btn-primary" style={{ padding: '.4rem .8rem', fontSize: '.85rem' }} onClick={onNewSale}>
               + New Sale

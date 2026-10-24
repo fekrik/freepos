@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../api';
 import { formatCents, type Cents } from '@freshpos/shared';
 import type { ZReportData } from './ZReportModal';
+import { printerHardware } from '../hardware';
 
 export interface ShiftInfo {
   id: string;
@@ -51,7 +52,8 @@ export function ShiftModal({ currentShift, onClose, onShiftClosed, onShiftUpdate
           reason: noSaleReason,
         },
       });
-      setSuccessMsg('Cash drawer kicked open (No-Sale recorded).');
+      await printerHardware.kickCashDrawer();
+      setSuccessMsg('Cash drawer kicked open (ESC p pulse sent & No-Sale audited).');
       onShiftUpdated();
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (e) {

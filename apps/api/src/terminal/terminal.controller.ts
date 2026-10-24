@@ -19,6 +19,12 @@ const CancelActionInput = z.object({
   paymentIntentId: z.string().optional(),
 });
 
+const RegisterReaderInput = z.object({
+  registrationCode: z.string().min(3),
+  label: z.string().optional().default('Lane 1 - WisePOS E'),
+  storeId: z.string().optional(),
+});
+
 @Controller('terminal')
 export class TerminalController {
   constructor(private terminal: TerminalService) {}
@@ -28,6 +34,14 @@ export class TerminalController {
   async getStatus(@CurrentUser() user: AuthUser, @Query('storeId') storeId?: string) {
     const targetStore = storeId || user.storeId;
     return this.terminal.getStatus(targetStore);
+  }
+
+  @Post('register-reader')
+  @RequirePermission('sale.create')
+  async registerReader(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    const input = parse(RegisterReaderInput, body);
+    const storeId = input.storeId || user.storeId;
+    return this.terminal.registerReader(input.registrationCode, input.label ?? 'Lane 1 - WisePOS E', storeId);
   }
 
   @Post('create-payment-intent')

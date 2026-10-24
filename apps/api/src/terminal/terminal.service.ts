@@ -111,6 +111,73 @@ export class TerminalService {
     return reader;
   }
 
+  async registerReader(registrationCode: string, label: string, storeId?: string) {
+    if (!this.stripe) {
+      const simId = `tmr_sim_${Date.now()}`;
+      if (storeId) {
+        const reg = await this.db.register.findFirst({ where: { storeId, active: true } });
+        if (reg) {
+          await this.db.register.update({
+            where: { id: reg.id },
+            data: { stripeReaderId: simId },
+          });
+        }
+      }
+      return {
+        mode: 'simulated_fallback',
+        reader: {
+          id: simId,
+          label: label || 'Lane 1 - WisePOS E',
+          registrationCode,
+          status: 'online',
+          deviceType: 'simulated_wisepos_e',
+        },
+      };
+    }
+
+    const locations = await this.stripe.terminal.locations.list({ limit: 5 });
+    let locationId = locations.data[0]?.id;
+    if (!locationId) {
+      const loc = await this.stripe.terminal.locations.create({
+        display_name: 'Main Street Supermarket',
+        address: {
+          line1: '100 Main St',
+          city: 'Springfield',
+          state: 'MA',
+          postal_code: '01103',
+          country: 'US',
+        },
+      });
+      locationId = loc.id;
+    }
+
+    const reader = await this.stripe.terminal.readers.create({
+      location: locationId,
+      registration_code: registrationCode.trim(),
+      label: label || 'Lane 1 - WisePOS E',
+    });
+
+    if (storeId && reader) {
+      const reg = await this.db.register.findFirst({ where: { storeId, active: true } });
+      if (reg) {
+        await this.db.register.update({
+          where: { id: reg.id },
+          data: { stripeReaderId: reader.id },
+        });
+      }
+    }
+
+    return {
+      mode: 'stripe',
+      reader: {
+        id: reader.id,
+        label: reader.label || reader.serial_number,
+        status: reader.status,
+        deviceType: reader.device_type,
+      },
+    };
+  }
+
   async createPaymentIntent(amountCents: number, storeId?: string) {
     if (!this.stripe) {
       // Mock flow
