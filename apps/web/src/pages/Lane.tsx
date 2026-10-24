@@ -56,6 +56,7 @@ export function Lane() {
   const [currentShift, setCurrentShift] = useState<ShiftInfo | null>(null);
   const [zReport, setZReport] = useState<ZReportData | null>(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showMobileTotals, setShowMobileTotals] = useState(false);
 
   const scanRef = useRef<HTMLInputElement>(null);
 
@@ -571,11 +572,11 @@ export function Lane() {
   return (
     <main className="lane">
       <header className="glass lane-header">
-        <div className="logo">
+        <div className="logo lane-header-brand">
           <div className="logo-mark">F</div>
-          FreshPOS <span className="muted" style={{ fontWeight: 500, fontSize: '.9rem' }}>· Lane 1</span>
+          FreshPOS <span className="muted lane-tag" style={{ fontWeight: 500, fontSize: '.9rem' }}>· Lane 1</span>
         </div>
-        <div style={{ display: 'flex', gap: '.8rem', alignItems: 'center' }}>
+        <div className="lane-header-actions" style={{ display: 'flex', alignItems: 'center' }}>
           {/* Connectivity badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', fontSize: '.8rem' }}>
             <span
@@ -599,8 +600,7 @@ export function Lane() {
           <button
             id="open-cfd-btn"
             type="button"
-            className="btn"
-            style={{ fontSize: '.85rem', padding: '.4rem .7rem' }}
+            className="btn btn-sm hide-mobile"
             onClick={() =>
               window.open(
                 '/cfd',
@@ -610,35 +610,34 @@ export function Lane() {
             }
             title="Open Customer-Facing Display pole screen in a pop-up window"
           >
-            🖥️ Customer Screen
+            🖥️ CFD
           </button>
 
           {/* Cash Drawer & Shift Management Button */}
           <button
             id="drawer-shift-btn"
             type="button"
-            className="btn"
-            style={{ fontSize: '.85rem', padding: '.4rem .7rem' }}
+            className="btn btn-sm"
             onClick={() => setShowShiftModal(true)}
           >
-            💵 Drawer / Shift
+            💵 Shift
           </button>
 
           {/* Customer Returns & Refunds Button */}
           <button
             id="return-btn"
             type="button"
-            className="btn"
-            style={{ fontSize: '.85rem', padding: '.4rem .7rem', borderColor: 'var(--warn)', color: 'var(--warn)' }}
+            className="btn btn-sm"
+            style={{ borderColor: 'var(--warn)', color: 'var(--warn)' }}
             onClick={() => setShowReturnModal(true)}
           >
             ↩️ Return
           </button>
 
-          <span className="muted" style={{ fontSize: '.85rem' }}>
-            {user.name} · <span style={{ textTransform: 'capitalize' }}>{user.role}</span>
+          <span className="muted cashier-name">
+            {user.name}
           </span>
-          <button id="logout" className="btn" style={{ padding: '.4rem .7rem', fontSize: '.85rem' }} onClick={logout}>
+          <button id="logout" className="btn btn-sm" onClick={logout}>
             Sign out
           </button>
         </div>
@@ -646,35 +645,35 @@ export function Lane() {
 
       <section className="glass lane-cart">
         {/* Customer Loyalty Banner */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '.45rem .85rem', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+        <div className="loyalty-banner" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '.45rem .85rem', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }}>
           {customer ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', fontSize: '.85rem' }}>
+            <div className="loyalty-info" style={{ display: 'flex', alignItems: 'center', gap: '.6rem', fontSize: '.85rem', flexWrap: 'wrap' }}>
               <span className="badge badge-snap" style={{ fontSize: '.75rem', padding: '.2rem .4rem' }}>★ MEMBER</span>
               <span style={{ fontWeight: 600 }}>{customer.name}</span>
               <span className="muted">({customer.phone})</span>
               <span style={{ color: 'var(--brand)', fontWeight: 600 }}>{customer.points} pts</span>
-              <span className="muted" style={{ fontSize: '.8rem' }}>+{Math.floor(totals.total / 100)} pts this order</span>
+              <span className="muted hide-mobile" style={{ fontSize: '.8rem' }}>+{Math.floor(totals.total / 100)} pts this order</span>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem', color: 'var(--muted)' }}>
-              <span>👤 No loyalty member attached</span>
-              <span style={{ fontSize: '.75rem' }}>(Earn 1 pt per $1)</span>
+            <div className="loyalty-info" style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem', color: 'var(--muted)', flexWrap: 'wrap' }}>
+              <span>👤 No loyalty member</span>
+              <span className="hide-mobile" style={{ fontSize: '.75rem' }}>(Earn 1 pt per $1)</span>
             </div>
           )}
-          <div style={{ display: 'flex', gap: '.4rem' }}>
+          <div style={{ display: 'flex', gap: '.4rem', flexShrink: 0 }}>
             {customer ? (
-              <button type="button" className="btn" style={{ fontSize: '.75rem', padding: '.2rem .5rem' }} onClick={() => setCustomer(null)}>
+              <button type="button" className="btn btn-sm" style={{ fontSize: '.75rem', padding: '.2rem .5rem' }} onClick={() => setCustomer(null)}>
                 Detach
               </button>
             ) : (
               <button
                 id="add-loyalty-btn"
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary btn-sm"
                 style={{ fontSize: '.8rem', padding: '.3rem .6rem' }}
                 onClick={() => setShowLoyaltyModal(true)}
               >
-                + Member Phone
+                + Member
               </button>
             )}
           </div>
@@ -686,7 +685,7 @@ export function Lane() {
               id="scan-input"
               ref={scanRef}
               className="input"
-              placeholder="Scan barcode, enter PLU, or type item name (e.g. Milk, Avocados)..."
+              placeholder="Scan barcode, PLU, or search items..."
               value={code}
               onChange={(e) => setCode(e.target.value)}
               onKeyDown={handleInputKeyDown}
@@ -737,7 +736,7 @@ export function Lane() {
           </div>
 
           <button
-            className="btn btn-primary"
+            className="btn btn-primary scan-enter-btn"
             type="button"
             onClick={() => {
               if (showSuggestions && selectedIndex >= 0 && suggestions[selectedIndex]) {
@@ -911,6 +910,114 @@ export function Lane() {
           </button>
         </section>
       </aside>
+
+      {/* Mobile Floating Bottom Bar with Drawer and Quick Actions */}
+      <div className="mobile-bottom-wrap">
+        {selectedLine && (
+          <div className="mobile-line-actions">
+            <span className="mobile-line-name" title={selectedLine.name}>
+              {selectedLine.name}
+            </span>
+            <div className="mobile-line-btns">
+              <button className="btn btn-sm" onClick={() => changeQty(-1)} title="Decrease quantity">
+                − Qty
+              </button>
+              <button className="btn btn-sm" onClick={() => changeQty(1)} title="Increase quantity">
+                + Qty
+              </button>
+              <button
+                className="btn btn-sm"
+                style={{ borderColor: 'var(--warn)', color: 'var(--warn)' }}
+                onClick={() => setOverrideModal({ type: 'price_override', line: selectedLine })}
+                title="Supervisor price override"
+              >
+                🔒 Price
+              </button>
+              <button
+                className="btn btn-sm"
+                onClick={() => setOverrideModal({ type: 'line_discount', line: selectedLine })}
+                title="Supervisor line discount"
+              >
+                % Disc
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={voidSelected} title="Void selected item">
+                ✕ Void
+              </button>
+              <button className="btn btn-sm" onClick={() => setSelected(null)} title="Deselect">
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showMobileTotals && (
+          <div className="mobile-totals-sheet">
+            <div className="totals-sheet-header">
+              <span style={{ fontWeight: 600, fontSize: '.95rem' }}>Bill Breakdown</span>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{ padding: '.2rem .5rem', fontSize: '.75rem' }}
+                onClick={() => setShowMobileTotals(false)}
+              >
+                ✕ Close
+              </button>
+            </div>
+            <div className="totals-sheet-rows">
+              <div className="row">
+                <span>Items</span>
+                <span>{itemCount}</span>
+              </div>
+              <div className="row">
+                <span>Subtotal</span>
+                <span>{formatCents(totals.subtotal)}</span>
+              </div>
+              {totals.discounts > 0 && (
+                <div className="row" style={{ color: 'var(--brand)' }}>
+                  <span>Savings / Discounts</span>
+                  <span>-{formatCents(totals.discounts)}</span>
+                </div>
+              )}
+              {totals.deposits > 0 && (
+                <div className="row">
+                  <span>Bottle Deposits</span>
+                  <span>{formatCents(totals.deposits)}</span>
+                </div>
+              )}
+              <div className="row">
+                <span>Sales Tax</span>
+                <span>{formatCents(totals.tax)}</span>
+              </div>
+              {totals.snapEligibleTotal > 0 && (
+                <div className="row" style={{ color: 'var(--snap)' }}>
+                  <span>SNAP eligible</span>
+                  <span>{formatCents(totals.snapEligibleTotal)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="mobile-checkout-bar">
+          <div className="mobile-summary-tap" onClick={() => setShowMobileTotals((v) => !v)}>
+            <div className="mobile-grand-price">{formatCents(totals.total)}</div>
+            <div className="mobile-grand-sub">
+              <span className="muted">{itemCount} items</span>
+              <span className="breakdown-toggle">
+                {showMobileTotals ? 'Hide breakdown ▲' : 'Details ▼'}
+              </span>
+            </div>
+          </div>
+          <button
+            id="mobile-pay-btn"
+            className="btn btn-primary btn-lg mobile-pay-btn"
+            disabled={!activeLines.length}
+            onClick={() => setShowPayment(true)}
+          >
+            Pay {formatCents(totals.total)}
+          </button>
+        </div>
+      </div>
 
       {/* Produce Scale Weight Modal */}
       {weighFor && (

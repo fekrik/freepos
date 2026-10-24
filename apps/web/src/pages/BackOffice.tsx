@@ -52,25 +52,27 @@ function Products() {
         )}
       </div>
       <section className="glass" style={{ overflow: 'hidden' }}>
-        <table>
-          <thead><tr><th>Name</th><th>Department</th><th>Code</th><th>Price</th><th>Flags</th></tr></thead>
-          <tbody>
-            {data.items.map((p) => (
-              <tr key={p.id} onClick={() => session.can('catalog.write') && setEditing(p)}>
-                <td><b>{p.name}</b>{p.brand && <div className="muted" style={{ fontSize: '.8rem' }}>{p.brand}</div>}</td>
-                <td className="muted">{p.department.name}</td>
-                <td className="mono muted">{p.plu ?? p.barcodes[0]?.code.replace(/^0+/, '') ?? '—'}</td>
-                <td className="mono">{formatCents(p.price)}{p.soldBy === 'weight' && <span className="muted">/lb</span>}</td>
-                <td style={{ display: 'flex', gap: '.3rem' }}>
-                  {p.snapEligible && <span className="badge badge-snap">SNAP</span>}
-                  {p.minAge && <span className="badge badge-age">{p.minAge}+</span>}
-                  {p.taxClass.rateBps > 0 && <span className="badge badge-muted">TAX {p.taxClass.rateBps / 100}%</span>}
-                  {!p.active && <span className="badge badge-muted">INACTIVE</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-wrapper">
+          <table>
+            <thead><tr><th>Name</th><th>Department</th><th>Code</th><th>Price</th><th>Flags</th></tr></thead>
+            <tbody>
+              {data.items.map((p) => (
+                <tr key={p.id} onClick={() => session.can('catalog.write') && setEditing(p)}>
+                  <td><b>{p.name}</b>{p.brand && <div className="muted" style={{ fontSize: '.8rem' }}>{p.brand}</div>}</td>
+                  <td className="muted">{p.department.name}</td>
+                  <td className="mono muted">{p.plu ?? p.barcodes[0]?.code.replace(/^0+/, '') ?? '—'}</td>
+                  <td className="mono">{formatCents(p.price)}{p.soldBy === 'weight' && <span className="muted">/lb</span>}</td>
+                  <td style={{ display: 'flex', gap: '.3rem' }}>
+                    {p.snapEligible && <span className="badge badge-snap">SNAP</span>}
+                    {p.minAge && <span className="badge badge-age">{p.minAge}+</span>}
+                    {p.taxClass.rateBps > 0 && <span className="badge badge-muted">TAX {p.taxClass.rateBps / 100}%</span>}
+                    {!p.active && <span className="badge badge-muted">INACTIVE</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
       {editing && <ProductForm initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
       {showImport && (
@@ -163,46 +165,48 @@ function Transactions() {
         </h1>
       </div>
       <section className="glass" style={{ overflow: 'hidden' }}>
-        <table>
-          <thead>
-            <tr>
-              <th>Receipt #</th>
-              <th>Date & Time</th>
-              <th>Cashier</th>
-              <th>Items</th>
-              <th>Tenders</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.sales.length === 0 ? (
+        <div className="table-wrapper">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }} className="muted">
-                  No completed sales yet. Ring up a sale on Lane 1!
-                </td>
+                <th>Receipt #</th>
+                <th>Date & Time</th>
+                <th>Cashier</th>
+                <th>Items</th>
+                <th>Tenders</th>
+                <th>Total</th>
               </tr>
-            ) : (
-              data.sales.map((s) => (
-                <tr key={s.id} onClick={() => setSelectedSale(s)}>
-                  <td className="mono" style={{ fontWeight: 600 }}>{s.saleNumber}</td>
-                  <td className="muted">{new Date(s.completedAt).toLocaleString()}</td>
-                  <td>{s.user?.name || 'Cashier'}</td>
-                  <td>{s.lines?.length || 0} items</td>
-                  <td>
-                    {s.payments?.map((p: any, i: number) => (
-                      <span key={i} className="badge badge-muted" style={{ marginRight: '.3rem' }}>
-                        {p.tenderType.toUpperCase()}
-                      </span>
-                    ))}
-                  </td>
-                  <td className="mono" style={{ fontWeight: 700, color: 'var(--brand)' }}>
-                    {formatCents(s.totalCents)}
+            </thead>
+            <tbody>
+              {data.sales.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }} className="muted">
+                    No completed sales yet. Ring up a sale on Lane 1!
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                data.sales.map((s) => (
+                  <tr key={s.id} onClick={() => setSelectedSale(s)}>
+                    <td className="mono" style={{ fontWeight: 600 }}>{s.saleNumber}</td>
+                    <td className="muted">{new Date(s.completedAt).toLocaleString()}</td>
+                    <td>{s.user?.name || 'Cashier'}</td>
+                    <td>{s.lines?.length || 0} items</td>
+                    <td>
+                      {s.payments?.map((p: any, i: number) => (
+                        <span key={i} className="badge badge-muted" style={{ marginRight: '.3rem' }}>
+                          {p.tenderType.toUpperCase()}
+                        </span>
+                      ))}
+                    </td>
+                    <td className="mono" style={{ fontWeight: 700, color: 'var(--brand)' }}>
+                      {formatCents(s.totalCents)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* Sale Detail Modal */}
@@ -265,13 +269,15 @@ function Audit() {
     <>
       <h1>Audit log</h1>
       <section className="glass" style={{ overflow: 'hidden' }}>
-        <table>
-          <thead><tr><th>When</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead>
-          <tbody>{rows.map((r) => (
-            <tr key={r.id}><td className="muted">{new Date(r.createdAt).toLocaleString()}</td><td className="mono">{r.action}</td>
-              <td className="muted">{r.entity ?? '—'}</td><td className="mono muted" style={{ fontSize: '.8rem' }}>{r.data ? JSON.stringify(r.data) : ''}</td></tr>
-          ))}</tbody>
-        </table>
+        <div className="table-wrapper">
+          <table>
+            <thead><tr><th>When</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead>
+            <tbody>{rows.map((r) => (
+              <tr key={r.id}><td className="muted">{new Date(r.createdAt).toLocaleString()}</td><td className="mono">{r.action}</td>
+                <td className="muted">{r.entity ?? '—'}</td><td className="mono muted" style={{ fontSize: '.8rem' }}>{r.data ? JSON.stringify(r.data) : ''}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
       </section>
     </>
   );
