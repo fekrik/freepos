@@ -1,6 +1,16 @@
+import { existsSync } from 'node:fs';
 import { PrismaClient, type SoldBy } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { gs1CheckDigit, normalizeGtin } from '@freshpos/shared';
+
+if (typeof process.loadEnvFile === 'function') {
+  for (const envFile of ['.env', '../../.env.local', '../.env.local', '.env.local']) {
+    if (existsSync(envFile)) {
+      try { process.loadEnvFile(envFile); } catch {}
+      break;
+    }
+  }
+}
 
 const db = new PrismaClient();
 const upc = (body11: string) => body11 + gs1CheckDigit(body11);

@@ -10,3 +10,4 @@ coverage/
 .neon/
 .env.local
 .pgdata/
+*.code-workspace
